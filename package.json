@@ -1,0 +1,20 @@
+{
+  "name": "orbly-social",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "dev:api": "pnpm --filter @orbly/api dev",
+    "dev:web": "pnpm --filter web dev",
+    "db:seed": "cd apps/api && python seed.py"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@10.30.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
