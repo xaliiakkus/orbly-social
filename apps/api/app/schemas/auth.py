@@ -29,6 +29,16 @@ class RefreshIn(BaseModel):
     refreshToken: str
 
 
+class OAuthIn(BaseModel):
+    provider: str = Field(pattern="^(google|apple)$")
+    idToken: str | None = None
+    accessToken: str | None = None
+    email: EmailStr | None = None
+    displayName: str | None = Field(None, min_length=1, max_length=100)
+    avatarUrl: str | None = None
+    oauthId: str | None = None
+
+
 class OnboardingIn(BaseModel):
     displayName: str | None = Field(None, min_length=1, max_length=100)
     bio: str | None = Field(None, max_length=160)

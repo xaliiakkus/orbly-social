@@ -1,4 +1,6 @@
-from datetime import datetime
+import asyncio
+import uuid
+from datetime import datetime, timedelta
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
@@ -8,14 +10,22 @@ from app.deps import OptionalUserId, UserId
 from app.models.like import Like
 from app.models.notification import Notification
 from app.models.orbit import Orbit
-from app.models.post import Post
+from app.models.post import Poll, PollOption, Post
 from app.models.user import User
 from app.schemas.common import PaginatedPosts, PostOut
+from app.services.feed_fanout import fanout_post
 from app.services.posts import enrich_posts, extract_hashtags, extract_mentions
+from app.services.realtime import emit_notification
+from app.services.redis_client import trending_incr
 from app.services.serializers import post_out, user_out
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
 router = APIRouter()
+
+
+class PollIn(BaseModel):
+    options: list[str] = Field(min_length=2, max_length=4)
+    durationHours: int = Field(default=24, ge=1, le=168)
 
 
 class CreatePostIn(BaseModel):
@@ -24,16 +34,54 @@ class CreatePostIn(BaseModel):
     replyToId: str | None = None
     repostOfId: str | None = None
     orbitId: str | None = None
+    poll: PollIn | None = None
 
 
 class RepostIn(BaseModel):
     content: str | None = Field(None, max_length=280)
 
 
+class PollVoteIn(BaseModel):
+    optionId: str
+
+
+async def _notify(user_id: str, actor_id: str, ntype: str, post_id: PydanticObjectId | None = None) -> None:
+    n = Notification(
+        userId=PydanticObjectId(user_id),
+        actorId=PydanticObjectId(actor_id),
+        type=ntype,
+        postId=post_id,
+    )
+    await n.insert()
+    actor = await User.get(actor_id)
+    await emit_notification(
+        user_id,
+        {
+            "id": str(n.id),
+            "type": ntype,
+            "postId": str(post_id) if post_id else None,
+            "isRead": False,
+            "actor": user_out(actor).model_dump() if actor else None,
+            "createdAt": datetime.utcnow().isoformat() + "Z",
+        },
+    )
+
+
 @router.post("/", status_code=201)
 async def create_post(body: CreatePostIn, user_id: UserId):
+    if len(body.mediaUrls) > 4:
+        raise HTTPException(400, "Max 4 images")
     mentions = await User.find({"username": {"$in": extract_mentions(body.content)}}).to_list()
     now = datetime.utcnow()
+    poll = None
+    if body.poll:
+        poll = Poll(
+            options=[
+                PollOption(id=str(uuid.uuid4())[:8], text=t[:25])
+                for t in body.poll.options
+            ],
+            endsAt=now + timedelta(hours=body.poll.durationHours),
+        )
     post = Post(
         authorId=PydanticObjectId(user_id),
         content=body.content,
@@ -45,9 +93,12 @@ async def create_post(body: CreatePostIn, user_id: UserId):
         orbitId=PydanticObjectId(body.orbitId) if body.orbitId else None,
         hashtags=extract_hashtags(body.content),
         mentions=[u.id for u in mentions],
+        poll=poll,
     )
     await post.insert()
     await User.find_one(User.id == PydanticObjectId(user_id)).update({"$inc": {"stats.postsCount": 1}})
+    for tag in post.hashtags:
+        await trending_incr(tag)
     if body.orbitId:
         await Orbit.find_one(Orbit.id == PydanticObjectId(body.orbitId)).update(
             {"$inc": {"stats.postCount": 1}}
@@ -58,12 +109,12 @@ async def create_post(body: CreatePostIn, user_id: UserId):
             {"$inc": {"stats.replyCount": 1}}
         )
         if parent and str(parent.authorId) != user_id:
-            await Notification(
-                userId=parent.authorId, actorId=PydanticObjectId(user_id), type="reply", postId=post.id
-            ).insert()
+            await _notify(str(parent.authorId), user_id, "reply", post.id)
+    if not body.replyToId:
+        asyncio.create_task(fanout_post(post))
     author = await User.get(user_id)
     orbit = await Orbit.get(body.orbitId) if body.orbitId else None
-    return {"post": post_out(post, author, orbit)}
+    return {"post": post_out(post, author, orbit, viewer_id=user_id)}
 
 
 @router.get("/{post_id}")
@@ -99,7 +150,7 @@ async def like_post(post_id: str, user_id: UserId):
     await Like(userId=oid, postId=pid).insert()
     await Post.find_one(Post.id == pid).update({"$inc": {"stats.likeCount": 1}})
     if str(post.authorId) != user_id:
-        await Notification(userId=post.authorId, actorId=oid, type="like", postId=pid).insert()
+        await _notify(str(post.authorId), user_id, "like", pid)
     return {"liked": True}
 
 
@@ -123,12 +174,35 @@ async def repost(post_id: str, body: RepostIn, user_id: UserId):
         content=body.content or "",
         repostOfId=original.id,
         orbitId=original.orbitId,
+        createdAt=datetime.utcnow(),
+        updatedAt=datetime.utcnow(),
     )
     await post.insert()
     await Post.find_one(Post.id == original.id).update({"$inc": {"stats.repostCount": 1}})
     await User.find_one(User.id == PydanticObjectId(user_id)).update({"$inc": {"stats.postsCount": 1}})
+    asyncio.create_task(fanout_post(post))
     author = await User.get(user_id)
-    return {"post": post_out(post, author)}
+    return {"post": post_out(post, author, viewer_id=user_id)}
+
+
+@router.post("/{post_id}/poll/vote")
+async def vote_poll(post_id: str, body: PollVoteIn, user_id: UserId):
+    post = await Post.get(post_id)
+    if not post or not post.poll:
+        raise HTTPException(404, "Poll not found")
+    if post.poll.endsAt <= datetime.utcnow():
+        raise HTTPException(400, "Poll ended")
+    if user_id in post.pollVotes:
+        raise HTTPException(400, "Already voted")
+    opt = next((o for o in post.poll.options if o.id == body.optionId), None)
+    if not opt:
+        raise HTTPException(400, "Invalid option")
+    opt.voteCount += 1
+    post.poll.totalVotes += 1
+    post.pollVotes[user_id] = body.optionId
+    await post.save()
+    enriched = await enrich_posts([post], user_id)
+    return {"post": enriched[0]}
 
 
 @router.get("/{post_id}/replies", response_model=PaginatedPosts)

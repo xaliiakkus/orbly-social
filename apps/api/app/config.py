@@ -19,5 +19,22 @@ class Settings(BaseSettings):
         validation_alias="CORS_ORIGIN",
     )
 
+    redis_url: str = Field(default="redis://127.0.0.1:6379", validation_alias="REDIS_URL")
+    redis_enabled: bool = Field(default=True, validation_alias="REDIS_ENABLED")
+
+    r2_endpoint: str | None = Field(default=None, validation_alias="R2_ENDPOINT")
+    r2_access_key_id: str | None = Field(default=None, validation_alias="R2_ACCESS_KEY_ID")
+    r2_secret_access_key: str | None = Field(default=None, validation_alias="R2_SECRET_ACCESS_KEY")
+    r2_bucket: str = Field(default="orbly-media", validation_alias="R2_BUCKET")
+    r2_public_url: str | None = Field(default=None, validation_alias="R2_PUBLIC_URL")
+    media_local_fallback: bool = Field(default=True, validation_alias="MEDIA_LOCAL_FALLBACK")
+
+    google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")
+    apple_client_id: str | None = Field(default=None, validation_alias="APPLE_CLIENT_ID")
+    tenor_api_key: str | None = Field(default=None, validation_alias="TENOR_API_KEY")
+
+    api_public_url: str = Field(default="http://localhost:4000", validation_alias="API_PUBLIC_URL")
+    socket_path: str = Field(default="/socket.io", validation_alias="SOCKET_PATH")
+
 
 settings = Settings()

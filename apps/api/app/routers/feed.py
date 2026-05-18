@@ -9,6 +9,7 @@ from app.models.post import Post
 from app.models.user import User
 from app.schemas.common import PaginatedPosts
 from app.services.posts import enrich_posts
+from app.services.redis_client import feed_get, redis_ok, trending_top
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
 router = APIRouter()
@@ -21,22 +22,38 @@ async def feed_following(
     limit: int = Query(20, ge=1, le=50),
 ):
     lim = parse_limit(limit)
+    skip = int(cursor) if cursor and cursor.isdigit() else 0
+
+    if redis_ok() and skip == 0:
+        ids = await feed_get(user_id, 0, lim)
+        if ids:
+            oids = [PydanticObjectId(i) for i in ids]
+            posts = await Post.find({"_id": {"$in": oids}, "isDeleted": False}).to_list()
+            order = {str(oid): i for i, oid in enumerate(oids)}
+            posts.sort(key=lambda p: order.get(str(p.id), 999))
+            has_more = len(ids) >= lim
+            return PaginatedPosts(
+                data=await enrich_posts(posts, user_id),
+                nextCursor=str(lim) if has_more else None,
+                hasMore=has_more,
+            )
+
     follows = await Follow.find(Follow.followerId == PydanticObjectId(user_id)).to_list()
     ids = [f.followingId for f in follows] + [PydanticObjectId(user_id)]
     q = Post.find({"authorId": {"$in": ids}, "isDeleted": False, "replyToId": None})
-    if cursor:
+    if cursor and not cursor.isdigit():
         decoded = decode_cursor(cursor)
         if decoded:
             q = Post.find(
                 {"authorId": {"$in": ids}, "isDeleted": False, "replyToId": None, "_id": {"$lt": decoded[1]}}
             )
-    posts = await q.sort(-Post.id).limit(lim + 1).to_list()
+    posts = await q.sort(-Post.id).skip(skip if cursor and cursor.isdigit() else 0).limit(lim + 1).to_list()
     has_more = len(posts) > lim
     slice_p = posts[:lim]
     last = slice_p[-1] if slice_p else None
     return PaginatedPosts(
         data=await enrich_posts(slice_p, user_id),
-        nextCursor=str(last.id) if has_more and last else None,
+        nextCursor=str(skip + lim) if has_more and cursor and cursor.isdigit() else (str(last.id) if has_more and last else None),
         hasMore=has_more,
     )
 
@@ -62,6 +79,7 @@ async def feed_for_you(
             "$match": {
                 "$or": [{"authorId": {"$in": following_ids}}, {"orbitId": {"$in": orbit_ids}}],
                 "isDeleted": False,
+                "replyToId": None,
                 "createdAt": {"$gte": since},
             }
         },
@@ -78,11 +96,7 @@ async def feed_for_you(
                 "ageHours": {"$divide": [{"$subtract": [datetime.utcnow(), "$createdAt"]}, 3600000]},
             }
         },
-        {
-            "$addFields": {
-                "nicheBoost": {"$cond": [{"$in": ["$orbitId", orbit_ids]}, 2, 1]},
-            }
-        },
+        {"$addFields": {"nicheBoost": {"$cond": [{"$in": ["$orbitId", orbit_ids]}, 2, 1]}}},
         {
             "$addFields": {
                 "finalScore": {
@@ -110,6 +124,11 @@ async def feed_for_you(
 
 @router.get("/trending")
 async def trending():
+    if redis_ok():
+        rows = await trending_top(10)
+        if rows:
+            return {"data": [{"tag": tag, "count": int(score)} for tag, score in rows]}
+
     since = datetime.utcnow() - timedelta(hours=24)
     pipeline = [
         {"$match": {"createdAt": {"$gte": since}, "isDeleted": False}},

@@ -64,11 +64,15 @@ async def create_orbit(body: CreateOrbitIn, user_id: UserId):
 
 
 @router.get("/{slug}")
-async def get_orbit(slug: str):
+async def get_orbit(slug: str, viewer_id: OptionalUserId = None):
     orbit = await Orbit.find_one(Orbit.slug == slug.lower())
     if not orbit:
         raise HTTPException(404, "Orbit not found")
-    return {"orbit": orbit_out(orbit)}
+    is_member = False
+    if viewer_id:
+        user = await User.get(viewer_id)
+        is_member = user is not None and orbit.id in (user.orbitIds or [])
+    return {"orbit": orbit_out(orbit), "isMember": is_member}
 
 
 @router.patch("/{slug}")

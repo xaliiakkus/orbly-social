@@ -1,8 +1,12 @@
+import re
+import secrets
+
 from fastapi import APIRouter, HTTPException, Query
 
+from app.config import settings
 from app.deps import UserId
 from app.models.user import User
-from app.schemas.auth import LoginIn, OnboardingIn, RefreshIn, RegisterIn
+from app.schemas.auth import LoginIn, OAuthIn, OnboardingIn, RefreshIn, RegisterIn
 from app.schemas.common import AuthResponse
 from app.services.auth_tokens import create_tokens, decode_token
 from app.services.serializers import user_out
@@ -67,6 +71,88 @@ async def me(user_id: UserId):
 async def username_available(username: str = Query(min_length=3, max_length=50)):
     taken = await User.find_one(User.username == username.lower())
     return {"available": taken is None}
+
+
+async def _unique_username(base: str) -> str:
+    base = re.sub(r"[^a-z0-9_]", "", base.lower())[:40] or "user"
+    candidate = base
+    n = 0
+    while await User.find_one(User.username == candidate):
+        n += 1
+        candidate = f"{base}{n}"
+    return candidate
+
+
+@router.post("/oauth", response_model=AuthResponse)
+async def oauth_login(body: OAuthIn):
+    email = (body.email or "").lower()
+    oauth_id = body.oauthId
+    display_name = body.displayName or "Orbly User"
+
+    if body.provider == "google" and body.idToken and settings.google_client_id:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token
+
+        try:
+            info = id_token.verify_oauth2_token(
+                body.idToken, google_requests.Request(), settings.google_client_id
+            )
+            email = info.get("email", email).lower()
+            oauth_id = info.get("sub", oauth_id)
+            display_name = info.get("name", display_name)
+        except Exception as exc:
+            raise HTTPException(401, "Invalid Google token") from exc
+
+    if body.provider == "apple" and body.idToken:
+        from app.services.apple_auth import verify_apple_id_token
+
+        try:
+            info = await verify_apple_id_token(body.idToken)
+        except ValueError as exc:
+            raise HTTPException(401, str(exc)) from exc
+        email = (info.get("email") or email).lower()
+        oauth_id = info.get("sub", oauth_id)
+        if not email:
+            raise HTTPException(400, "Apple account email required on first sign-in")
+
+    if not email:
+        raise HTTPException(400, "Email required for OAuth")
+
+    if not oauth_id:
+        oauth_id = secrets.token_hex(16)
+
+    user = await User.find_one(
+        {
+            "$or": [
+                {"oauthProvider": body.provider, "oauthId": oauth_id},
+                {"email": email},
+            ]
+        }
+    )
+    if user and user.isBanned:
+        raise HTTPException(401, "Account suspended")
+
+    if not user:
+        username = await _unique_username(email.split("@")[0])
+        user = User(
+            username=username,
+            displayName=display_name,
+            email=email,
+            avatarUrl=body.avatarUrl,
+            oauthProvider=body.provider,
+            oauthId=oauth_id,
+            onboarded=False,
+        )
+        await user.insert()
+    else:
+        if not user.oauthProvider:
+            user.oauthProvider = body.provider
+            user.oauthId = oauth_id
+        if body.avatarUrl and not user.avatarUrl:
+            user.avatarUrl = body.avatarUrl
+        await user.save()
+
+    return AuthResponse(user=user_out(user), tokens=create_tokens(str(user.id)))
 
 
 @router.patch("/onboarding")

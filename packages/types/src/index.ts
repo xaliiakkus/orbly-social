@@ -20,6 +20,7 @@ export interface UserPublic {
   verified: boolean;
   isPrivate: boolean;
   onboarded: boolean;
+  orbitIds?: string[];
   stats: {
     followersCount: number;
     followingCount: number;
@@ -41,6 +42,21 @@ export interface OrbitPublic {
   };
 }
 
+export interface PollOptionPublic {
+  id: string;
+  text: string;
+  voteCount: number;
+  percent: number;
+}
+
+export interface PollPublic {
+  options: PollOptionPublic[];
+  endsAt: string;
+  totalVotes: number;
+  votedOptionId?: string | null;
+  ended: boolean;
+}
+
 export interface PostPublic {
   id: string;
   content: string;
@@ -50,6 +66,7 @@ export interface PostPublic {
   replyToId?: string;
   repostOfId?: string;
   hashtags: string[];
+  poll?: PollPublic;
   stats: {
     likeCount: number;
     replyCount: number;
@@ -78,4 +95,62 @@ export interface AuthTokens {
 export interface AuthResponse {
   user: UserPublic;
   tokens: AuthTokens;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  postId: string | null;
+  isRead: boolean;
+  actor: UserPublic | null;
+  createdAt: string;
+}
+
+export interface TrendingTag {
+  tag: string;
+  count: number;
+}
+
+export interface SearchResult {
+  query: string;
+  users: UserPublic[];
+  posts: PostPublic[];
+  orbits: OrbitPublic[];
+}
+
+export interface ConversationItem {
+  id: string;
+  participant: UserPublic | null;
+  lastMessage: {
+    content: string;
+    senderId: string;
+    createdAt: string;
+  } | null;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+export interface MessageItem {
+  id: string;
+  senderId: string;
+  content: string;
+  mediaUrls: string[];
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface PresignResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  method: string;
+  local?: boolean;
+}
+
+export interface GifItem {
+  id: string;
+  url: string;
+  previewUrl: string;
+  width: string;
+  height: string;
 }

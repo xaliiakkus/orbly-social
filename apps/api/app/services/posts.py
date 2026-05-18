@@ -58,6 +58,7 @@ async def enrich_posts(posts: list[Post], viewer_id: str | None = None) -> list[
                 orbit,
                 liked_by_me=str(p.id) in liked if viewer_id else None,
                 bookmarked_by_me=str(p.id) in bookmarked if viewer_id else None,
+                viewer_id=viewer_id,
             )
         )
     return result

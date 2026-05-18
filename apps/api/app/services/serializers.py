@@ -1,9 +1,11 @@
+from datetime import datetime
+
 from beanie import Document
 
 from app.models.orbit import Orbit
-from app.models.user import User
 from app.models.post import Post
-from app.schemas.common import OrbitOut, PostOut, PostStatsOut, UserOut, UserStatsOut
+from app.models.user import User
+from app.schemas.common import OrbitOut, PollOptionOut, PollOut, PostOut, PostStatsOut, UserOut, UserStatsOut
 
 
 def _ts(doc: Document, field: str = "createdAt") -> str:
@@ -30,6 +32,7 @@ def user_out(user: User) -> UserOut:
         verified=user.verified,
         isPrivate=user.isPrivate,
         onboarded=user.onboarded,
+        orbitIds=[str(x) for x in (user.orbitIds or [])],
         stats=UserStatsOut(
             followersCount=user.stats.followersCount,
             followingCount=user.stats.followingCount,
@@ -51,6 +54,27 @@ def orbit_out(orbit: Orbit) -> OrbitOut:
     )
 
 
+def poll_out(post: Post, viewer_id: str | None = None) -> PollOut | None:
+    if not post.poll:
+        return None
+    total = post.poll.totalVotes or 0
+    voted = post.pollVotes.get(viewer_id) if viewer_id else None
+    ended = post.poll.endsAt <= datetime.utcnow()
+    options = []
+    for opt in post.poll.options:
+        pct = (opt.voteCount / total * 100) if total else 0
+        options.append(
+            PollOptionOut(id=opt.id, text=opt.text, voteCount=opt.voteCount, percent=round(pct, 1))
+        )
+    return PollOut(
+        options=options,
+        endsAt=post.poll.endsAt.isoformat().replace("+00:00", "Z"),
+        totalVotes=total,
+        votedOptionId=voted,
+        ended=ended,
+    )
+
+
 def post_out(
     post: Post,
     author: User,
@@ -58,6 +82,7 @@ def post_out(
     *,
     liked_by_me: bool | None = None,
     bookmarked_by_me: bool | None = None,
+    viewer_id: str | None = None,
 ) -> PostOut:
     return PostOut(
         id=str(post.id),
@@ -68,6 +93,7 @@ def post_out(
         replyToId=str(post.replyToId) if post.replyToId else None,
         repostOfId=str(post.repostOfId) if post.repostOfId else None,
         hashtags=post.hashtags or [],
+        poll=poll_out(post, viewer_id),
         stats=PostStatsOut(
             likeCount=post.stats.likeCount,
             replyCount=post.stats.replyCount,

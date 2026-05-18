@@ -12,6 +12,18 @@ class PostStats(BaseModel):
     viewCount: int = 0
 
 
+class PollOption(BaseModel):
+    id: str
+    text: str
+    voteCount: int = 0
+
+
+class Poll(BaseModel):
+    options: list[PollOption] = Field(min_length=2, max_length=4)
+    endsAt: datetime
+    totalVotes: int = 0
+
+
 class Post(Document):
     authorId: PydanticObjectId
     content: str
@@ -21,6 +33,8 @@ class Post(Document):
     orbitId: PydanticObjectId | None = None
     hashtags: list[str] = Field(default_factory=list)
     mentions: list[PydanticObjectId] = Field(default_factory=list)
+    poll: Poll | None = None
+    pollVotes: dict[str, str] = Field(default_factory=dict)
     stats: PostStats = Field(default_factory=PostStats)
     isDeleted: bool = False
     createdAt: datetime | None = None

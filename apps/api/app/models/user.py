@@ -26,6 +26,8 @@ class User(Document):
     isPrivate: bool = False
     isBanned: bool = False
     onboarded: bool = False
+    oauthProvider: str | None = None
+    oauthId: str | None = None
     stats: UserStats = Field(default_factory=UserStats)
     orbitIds: list[PydanticObjectId] = Field(default_factory=list)
 

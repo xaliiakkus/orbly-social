@@ -19,6 +19,7 @@ class UserOut(BaseModel):
     verified: bool = False
     isPrivate: bool = False
     onboarded: bool = False
+    orbitIds: list[str] = []
     stats: UserStatsOut
     createdAt: str
 
@@ -64,6 +65,21 @@ class OrbitOut(BaseModel):
     stats: dict = Field(default_factory=dict)
 
 
+class PollOptionOut(BaseModel):
+    id: str
+    text: str
+    voteCount: int
+    percent: float = 0
+
+
+class PollOut(BaseModel):
+    options: list[PollOptionOut]
+    endsAt: str
+    totalVotes: int
+    votedOptionId: str | None = None
+    ended: bool = False
+
+
 class PostOut(BaseModel):
     id: str
     content: str
@@ -73,6 +89,7 @@ class PostOut(BaseModel):
     replyToId: str | None = None
     repostOfId: str | None = None
     hashtags: list[str] = []
+    poll: PollOut | None = None
     stats: PostStatsOut
     likedByMe: bool | None = None
     bookmarkedByMe: bool | None = None

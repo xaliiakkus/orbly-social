@@ -1,0 +1,34 @@
+---
+description: Web ve mobile her zaman birlikte güncellenir
+globs:
+  - apps/web/**
+  - apps/mobile/**
+  - packages/features/**
+  - packages/api-client/**
+  - packages/types/**
+alwaysApply: true
+---
+
+# Web + Mobile eş zamanlı geliştirme
+
+Orbly.social'da **web** (`apps/web`) ve **mobile** (`apps/mobile`) ayrı ürünler değil; aynı platformun iki istemcisidir.
+
+## Zorunlu kurallar
+
+1. **Paylaşılan mantık** — API çağrıları, feed, beğeni, bookmark, compose, poll, DM, bildirimler için `@orbly/features` hook'larını kullan. Mantığı yalnızca web veya yalnızca mobile'a kopyalama.
+
+2. **Parite** — Bir özellik eklendiğinde veya değiştirildiğinde **her iki istemcide** de uygula:
+   - Aynı API endpoint'leri (`@orbly/api-client`)
+   - Aynı tipler (`@orbly/types`)
+   - Aynı iş kuralları (`@orbly/features`)
+
+3. **UI farkı** — Görünüm platforma özgü olabilir (Tailwind vs StyleSheet), davranış aynı kalmalı.
+
+4. **Ortak paketler** — Önce `packages/types` → `packages/api-client` → `packages/features` güncelle; sonra web ve mobile.
+
+## Kontrol listesi (her PR / değişiklik)
+
+- [ ] `packages/features` güncellendi mi?
+- [ ] `apps/web` güncellendi mi?
+- [ ] `apps/mobile` güncellendi mi?
+- [ ] `.env.example` dosyaları (web + mobile + api) uyumlu mu?

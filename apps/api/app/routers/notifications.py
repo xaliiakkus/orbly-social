@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query
 
 from app.deps import UserId
 from app.models.notification import Notification
-from app.services.serializers import user_out
+from app.services.serializers import _ts, user_out
 from app.models.user import User
 from app.utils import parse_limit
 
@@ -36,7 +36,7 @@ async def list_notifications(
                 "postId": str(n.postId) if n.postId else None,
                 "isRead": n.isRead,
                 "actor": user_out(amap[n.actorId]) if n.actorId and n.actorId in amap else None,
-                "createdAt": "",
+                "createdAt": _ts(n),
             }
             for n in slice_n
         ],
