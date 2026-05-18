@@ -17,7 +17,11 @@ sio = socketio.AsyncServer(
     engineio_logger=False,
 )
 
-_user_rooms: dict[str, str] = {}
+_sid_users: dict[str, str | None] = {}
+
+
+def get_sid_user_id(sid: str) -> str | None:
+    return _sid_users.get(sid)
 
 
 @sio.event
@@ -30,21 +34,20 @@ async def connect(sid: str, environ: dict, auth: dict | None = None) -> bool:
         for part in qs.split("&"):
             if part.startswith("token="):
                 token = part.split("=", 1)[1]
-    if not token:
-        return False
-    try:
-        user_id = decode_token(token, "access")
-    except ValueError:
-        return False
-    room = f"user:{user_id}"
-    await sio.enter_room(sid, room)
-    _user_rooms[sid] = room
+    user_id: str | None = None
+    if token:
+        try:
+            user_id = decode_token(token, "access")
+        except ValueError:
+            return False
+        await sio.enter_room(sid, f"user:{user_id}")
+    _sid_users[sid] = user_id
     return True
 
 
 @sio.event
 async def disconnect(sid: str) -> None:
-    _user_rooms.pop(sid, None)
+    _sid_users.pop(sid, None)
 
 
 async def emit_to_user(user_id: str, event: str, data: dict[str, Any]) -> None:
@@ -63,5 +66,15 @@ async def emit_feed_update(user_id: str, payload: dict[str, Any]) -> None:
     await emit_to_user(user_id, "feed:new", payload)
 
 
-def mount_socketio(app):  # noqa: ANN001
-    return socketio.ASGIApp(sio, other_asgi_app=app, socketio_path=settings.socket_path.strip("/"))
+def mount_socketio(fastapi_app):  # noqa: ANN001
+    # Do not name the parameter `app`: `import app.commands` would shadow it and
+    # pass the package module to ASGIApp (TypeError: 'module' object is not callable).
+    import app.commands  # noqa: F401
+    import app.services.socket_rpc  # noqa: F401
+    import app.services.socket_subscribe  # noqa: F401
+
+    return socketio.ASGIApp(
+        sio,
+        other_asgi_app=fastapi_app,
+        socketio_path=settings.socket_path.strip("/"),
+    )

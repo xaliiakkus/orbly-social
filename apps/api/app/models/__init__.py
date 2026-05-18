@@ -7,6 +7,8 @@ from app.models.bookmark import Bookmark
 from app.models.notification import Notification
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.live_channel import LiveChannel
+from app.models.live_comment import LiveComment
 
 ALL_DOCUMENTS = [
     User,
@@ -18,4 +20,6 @@ ALL_DOCUMENTS = [
     Notification,
     Conversation,
     Message,
+    LiveChannel,
+    LiveComment,
 ]

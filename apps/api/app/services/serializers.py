@@ -90,6 +90,7 @@ def post_out(
         mediaUrls=post.mediaUrls or [],
         author=user_out(author),
         orbit=orbit_out(orbit) if orbit else None,
+        liveBroadcastId=str(post.liveBroadcastId) if post.liveBroadcastId else None,
         replyToId=str(post.replyToId) if post.replyToId else None,
         repostOfId=str(post.repostOfId) if post.repostOfId else None,
         hashtags=post.hashtags or [],

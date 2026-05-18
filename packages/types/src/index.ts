@@ -63,6 +63,7 @@ export interface PostPublic {
   mediaUrls: string[];
   author: UserPublic;
   orbit?: OrbitPublic;
+  liveBroadcastId?: string | null;
   replyToId?: string;
   repostOfId?: string;
   hashtags: string[];

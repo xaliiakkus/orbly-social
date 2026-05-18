@@ -16,7 +16,9 @@ class RegisterIn(BaseModel):
     def username_format(cls, v: str) -> str:
         v = v.lower().strip()
         if not _USERNAME_RE.match(v):
-            raise ValueError("Username: lowercase letters, numbers, underscore only")
+            raise ValueError(
+                "Kullanıcı adı yalnızca küçük harf, rakam ve alt çizgi içerebilir"
+            )
         return v
 
 
@@ -43,5 +45,5 @@ class OnboardingIn(BaseModel):
     displayName: str | None = Field(None, min_length=1, max_length=100)
     bio: str | None = Field(None, max_length=160)
     avatarUrl: str | None = None
-    orbitIds: list[str] | None = Field(None, min_length=3)
+    orbitIds: list[str] | None = None
     onboarded: bool | None = None

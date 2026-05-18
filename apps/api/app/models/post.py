@@ -31,6 +31,7 @@ class Post(Document):
     replyToId: PydanticObjectId | None = None
     repostOfId: PydanticObjectId | None = None
     orbitId: PydanticObjectId | None = None
+    liveBroadcastId: PydanticObjectId | None = None
     hashtags: list[str] = Field(default_factory=list)
     mentions: list[PydanticObjectId] = Field(default_factory=list)
     poll: Poll | None = None

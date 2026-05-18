@@ -109,12 +109,26 @@ Kök adres (`/`) otomatik olarak `/docs` sayfasına yönlendirir.
 
 ## 6. Web ve mobile bağlantısı
 
-Web (`apps/web`) veya mobile (`apps/mobile`) için ortam değişkeni:
+### Web (Next.js) — zorunlu
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+`apps/web/.env.local` örneği:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=üret-buraya-32-karakterden-uzun-bir-deger
+```
+
+> `NEXTAUTH_SECRET` olmadan kayıt sonrası `/api/auth/error?error=Configuration` görürsün. Üretmek için: `openssl rand -base64 32`
+
+### Mobile (Expo)
 
 ```env
 EXPO_PUBLIC_API_URL=http://localhost:4000
-# veya Next.js için:
-NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
 
 Kimlik doğrulama gerektiren isteklerde header:
@@ -181,6 +195,18 @@ Geliştirmede API **`tsx`** ile çalışır; paketler kaynak dosyadan (`packages
 ### Mongoose “Duplicate schema index” uyarısı
 
 `username` ve `email` alanlarında `unique: true` zaten index oluşturur; ek `schema.index()` satırları kaldırıldı. Uyarı devam ederse API’yi yeniden başlat.
+
+### Web: `layout.css` 404, `Cannot find module './867.js'`, bozuk sayfa
+
+Next.js `.next` önbelleği bozulmuş (genelde derleme hatası sırasında `dev` açıkken olur). Çözüm:
+
+```bash
+cd apps/web
+# Dev sunucusunu durdur (Ctrl+C), sonra:
+pnpm dev:clean
+```
+
+veya manuel: `apps/web/.next` klasörünü sil, ardından `pnpm dev`.
 
 ---
 

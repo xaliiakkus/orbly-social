@@ -3,8 +3,8 @@ from fastapi import APIRouter, Query
 
 from app.deps import UserId
 from app.models.notification import Notification
-from app.services.serializers import _ts, user_out
 from app.models.user import User
+from app.services.serializers import _ts, user_out
 from app.utils import parse_limit
 
 router = APIRouter()
@@ -44,24 +44,3 @@ async def list_notifications(
         "nextCursor": str(slice_n[-1].id) if has_more and slice_n else None,
         "hasMore": has_more,
     }
-
-
-@router.patch("/read-all")
-async def read_all(user_id: UserId):
-    oid = PydanticObjectId(user_id)
-    async for n in Notification.find(Notification.userId == oid, Notification.isRead == False):
-        n.isRead = True
-        await n.save()
-    return {"success": True}
-
-
-@router.patch("/{notif_id}/read")
-async def read_one(notif_id: str, user_id: UserId):
-    n = await Notification.find_one(
-        Notification.id == PydanticObjectId(notif_id),
-        Notification.userId == PydanticObjectId(user_id),
-    )
-    if n:
-        n.isRead = True
-        await n.save()
-    return {"success": True}

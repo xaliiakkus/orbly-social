@@ -18,6 +18,22 @@ def encode_cursor(created_at: datetime, doc_id: PydanticObjectId) -> str:
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
+async def resolve_user_by_id_or_username(ref: str):
+    """Look up a user by MongoDB id or @username."""
+    from app.models.user import User
+
+    raw = ref.strip().lstrip("@")
+    if not raw:
+        return None
+    try:
+        user = await User.get(PydanticObjectId(raw))
+        if user and not user.isBanned:
+            return user
+    except Exception:
+        pass
+    return await User.find_one(User.username == raw.lower(), User.isBanned == False)
+
+
 def decode_cursor(cursor: str) -> tuple[datetime, PydanticObjectId] | None:
     try:
         pad = "=" * (-len(cursor) % 4)

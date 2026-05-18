@@ -4,7 +4,7 @@ import { useApi } from "../context";
 
 export type FeedMode = "for-you" | "following";
 
-export function useFeed(mode: FeedMode) {
+export function useFeed(mode: FeedMode, options?: { enabled?: boolean }) {
   const api = useApi();
   return useInfiniteQuery({
     queryKey: ["feed", mode],
@@ -14,5 +14,6 @@ export function useFeed(mode: FeedMode) {
         : api.feed.following(pageParam as string | undefined),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined),
+    enabled: options?.enabled ?? true,
   });
 }

@@ -1,5 +1,5 @@
 from beanie import PydanticObjectId
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 from app.deps import UserId
 from app.models.bookmark import Bookmark
@@ -35,26 +35,3 @@ async def list_bookmarks(
         nextCursor=str(last.id) if has_more and last else None,
         hasMore=has_more,
     )
-
-
-@router.post("/{post_id}", status_code=201)
-async def add_bookmark(post_id: str, user_id: UserId):
-    post = await Post.find_one(Post.id == PydanticObjectId(post_id), Post.isDeleted == False)
-    if not post:
-        raise HTTPException(404, "Post not found")
-    oid, pid = PydanticObjectId(user_id), PydanticObjectId(post_id)
-    if await Bookmark.find_one(Bookmark.userId == oid, Bookmark.postId == pid):
-        return {"bookmarked": True}
-    await Bookmark(userId=oid, postId=pid).insert()
-    await Post.find_one(Post.id == pid).update({"$inc": {"stats.bookmarkCount": 1}})
-    return {"bookmarked": True}
-
-
-@router.delete("/{post_id}")
-async def remove_bookmark(post_id: str, user_id: UserId):
-    oid, pid = PydanticObjectId(user_id), PydanticObjectId(post_id)
-    bm = await Bookmark.find_one(Bookmark.userId == oid, Bookmark.postId == pid)
-    if bm:
-        await bm.delete()
-        await Post.find_one(Post.id == pid).update({"$inc": {"stats.bookmarkCount": -1}})
-    return {"bookmarked": False}

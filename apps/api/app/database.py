@@ -1,15 +1,15 @@
 from beanie import init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from app.config import settings
 from app.models import ALL_DOCUMENTS
 
-_client: AsyncIOMotorClient | None = None
+_client: AsyncMongoClient | None = None
 
 
 async def connect_db() -> None:
     global _client
-    _client = AsyncIOMotorClient(settings.mongodb_uri)
+    _client = AsyncMongoClient(settings.mongodb_uri)
     db = _client.get_default_database()
     if db is None:
         db = _client["orbly"]
@@ -19,5 +19,5 @@ async def connect_db() -> None:
 async def close_db() -> None:
     global _client
     if _client:
-        _client.close()
+        await _client.close()
         _client = None

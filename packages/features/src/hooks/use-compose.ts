@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 
 import { DEFAULT_POLL_HOURS, MAX_MEDIA_PER_POST, POST_MAX_LENGTH } from "../constants";
-import { useApi, useOrbly } from "../context";
+import { useApi, useOrbly, useOrblyQueryClient } from "../context";
 
 export type ComposePayload = {
   content: string;
@@ -14,7 +14,7 @@ export type ComposePayload = {
 export function useComposePost() {
   const api = useApi();
   const { uploadFile } = useOrbly();
-  const qc = useQueryClient();
+  const qc = useOrblyQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -53,6 +53,9 @@ export function useComposePost() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["feed"] });
+      void qc.invalidateQueries({ queryKey: ["profile-posts"] });
+      void qc.invalidateQueries({ queryKey: ["orbit-posts"] });
+      void qc.invalidateQueries({ queryKey: ["trending"] });
       if (vars.replyToId) {
         void qc.invalidateQueries({ queryKey: ["post", vars.replyToId] });
         void qc.invalidateQueries({ queryKey: ["replies", vars.replyToId] });

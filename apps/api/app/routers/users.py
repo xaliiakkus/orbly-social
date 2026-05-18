@@ -1,28 +1,18 @@
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
-
 from app.deps import OptionalUserId, UserId
 from app.models.follow import Follow
-from app.models.notification import Notification
+from app.models.live_channel import LiveChannel
 from app.models.post import Post
 from app.models.user import User
-from app.schemas.common import PaginatedPosts, PaginatedUsers, UserOut
+from app.commands.users_cmds import update_me
+from app.schemas.common import PaginatedPosts, PaginatedUsers
+from app.schemas.users import UpdateProfileIn
 from app.services.posts import enrich_posts
 from app.services.serializers import user_out
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
 router = APIRouter()
-
-
-class UpdateProfileIn(BaseModel):
-    displayName: str | None = Field(None, min_length=1, max_length=100)
-    bio: str | None = Field(None, max_length=160)
-    location: str | None = Field(None, max_length=100)
-    website: str | None = Field(None, max_length=255)
-    avatarUrl: str | None = None
-    bannerUrl: str | None = None
-    isPrivate: bool | None = None
 
 
 @router.get("/me")
@@ -34,14 +24,9 @@ async def get_me(user_id: UserId):
 
 
 @router.patch("/me")
-async def patch_me(body: UpdateProfileIn, user_id: UserId):
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
-    for k, v in body.model_dump(exclude_unset=True).items():
-        setattr(user, k, v)
-    await user.save()
-    return {"user": user_out(user)}
+async def patch_me(user_id: UserId, body: UpdateProfileIn):
+    """REST fallback when socket RPC is unavailable (mobile dev / offline socket)."""
+    return await update_me(user_id, body.model_dump(exclude_unset=True))
 
 
 @router.get("/{username}")
@@ -89,33 +74,23 @@ async def user_posts(
     )
 
 
-@router.post("/{user_id}/follow", status_code=201)
-async def follow(user_id: str, current: UserId):
-    if user_id == current:
-        raise HTTPException(400, "Cannot follow yourself")
-    target = await User.get(user_id)
-    if not target:
+@router.get("/{username}/broadcasts")
+async def user_broadcasts(username: str, limit: int = Query(20, ge=1, le=50)):
+    user = await User.find_one(User.username == username.lower())
+    if not user:
         raise HTTPException(404, "User not found")
-    oid = PydanticObjectId(current)
-    tid = PydanticObjectId(user_id)
-    if await Follow.find_one(Follow.followerId == oid, Follow.followingId == tid):
-        return {"following": True}
-    await Follow(followerId=oid, followingId=tid).insert()
-    await User.find_one(User.id == oid).update({"$inc": {"stats.followingCount": 1}})
-    await User.find_one(User.id == tid).update({"$inc": {"stats.followersCount": 1}})
-    await Notification(userId=tid, actorId=oid, type="follow").insert()
-    return {"following": True}
+    channels = (
+        await LiveChannel.find(
+            LiveChannel.hostId == user.id,
+            LiveChannel.status == "ended",
+        )
+        .sort(-LiveChannel.endedAt)
+        .limit(limit)
+        .to_list()
+    )
+    from app.commands.live_cmds import _stats_out
 
-
-@router.delete("/{user_id}/follow")
-async def unfollow(user_id: str, current: UserId):
-    oid, tid = PydanticObjectId(current), PydanticObjectId(user_id)
-    removed = await Follow.find_one(Follow.followerId == oid, Follow.followingId == tid)
-    if removed:
-        await removed.delete()
-        await User.find_one(User.id == oid).update({"$inc": {"stats.followingCount": -1}})
-        await User.find_one(User.id == tid).update({"$inc": {"stats.followersCount": -1}})
-    return {"following": False}
+    return {"data": [await _stats_out(c, user) for c in channels]}
 
 
 async def _paginate_users(follows: list, field: str, cursor: str | None, limit: int) -> PaginatedUsers:

@@ -2,7 +2,7 @@
 import asyncio
 
 from beanie import init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 from passlib.context import CryptContext
 
 from app.config import settings
@@ -23,7 +23,7 @@ ORBITS = [
 
 
 async def main() -> None:
-    client = AsyncIOMotorClient(settings.mongodb_uri)
+    client = AsyncMongoClient(settings.mongodb_uri)
     db = client.get_default_database()
     if db is None:
         db = client["orbly"]
@@ -47,7 +47,7 @@ async def main() -> None:
         ).insert()
 
     print("Seed OK:", len(ORBITS), "orbits, demo@orbly.social / password123")
-    client.close()
+    await client.close()
 
 
 if __name__ == "__main__":

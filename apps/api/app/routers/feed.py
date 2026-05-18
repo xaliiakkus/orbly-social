@@ -8,9 +8,16 @@ from app.models.follow import Follow
 from app.models.post import Post
 from app.models.user import User
 from app.schemas.common import PaginatedPosts
+from app.services.aggregation import aggregate_to_list
+from app.services.feed_ranking import (
+    build_for_you_pipeline,
+    for_you_since,
+    load_interest_orbits,
+    strip_ranking_fields,
+)
 from app.services.posts import enrich_posts
 from app.services.redis_client import feed_get, redis_ok, trending_top
-from app.utils import decode_cursor, encode_cursor, parse_limit
+from app.utils import decode_cursor, parse_limit
 
 router = APIRouter()
 
@@ -64,6 +71,7 @@ async def feed_for_you(
     cursor: str | None = None,
     limit: int = Query(20, ge=1, le=50),
 ):
+    """Keşif akışı: tüm gönderiler; ilgi alanı ve takip sıralamada yükselir."""
     user = await User.get(user_id)
     if not user:
         raise HTTPException(404, "User not found")
@@ -71,48 +79,38 @@ async def feed_for_you(
     skip = int(cursor) if cursor else 0
     follows = await Follow.find(Follow.followerId == PydanticObjectId(user_id)).to_list()
     following_ids = [f.followingId for f in follows]
-    orbit_ids = user.orbitIds or []
-    since = datetime.utcnow() - timedelta(hours=48)
+    orbit_ids = list(user.orbitIds or [])
+    orbits = await load_interest_orbits(orbit_ids)
+    orbit_slugs = [o.slug.lower() for o in orbits]
+    since = for_you_since()
 
-    pipeline = [
-        {
-            "$match": {
-                "$or": [{"authorId": {"$in": following_ids}}, {"orbitId": {"$in": orbit_ids}}],
-                "isDeleted": False,
-                "replyToId": None,
-                "createdAt": {"$gte": since},
-            }
-        },
-        {
-            "$addFields": {
-                "engagementScore": {
-                    "$add": [
-                        {"$multiply": ["$stats.likeCount", 1]},
-                        {"$multiply": ["$stats.replyCount", 2]},
-                        {"$multiply": ["$stats.repostCount", 3]},
-                        {"$multiply": ["$stats.bookmarkCount", 1.5]},
-                    ]
-                },
-                "ageHours": {"$divide": [{"$subtract": [datetime.utcnow(), "$createdAt"]}, 3600000]},
-            }
-        },
-        {"$addFields": {"nicheBoost": {"$cond": [{"$in": ["$orbitId", orbit_ids]}, 2, 1]}}},
-        {
-            "$addFields": {
-                "finalScore": {
-                    "$divide": [
-                        {"$multiply": ["$engagementScore", "$nicheBoost"]},
-                        {"$pow": [{"$add": ["$ageHours", 2]}, 1.5]},
-                    ]
-                }
-            }
-        },
-        {"$sort": {"finalScore": -1, "createdAt": -1}},
-        {"$skip": skip},
-        {"$limit": lim + 1},
-    ]
-    results = await Post.aggregate(pipeline).to_list()
-    posts = [Post.model_validate(r) for r in results]
+    pipeline = build_for_you_pipeline(
+        user_id=user_id,
+        orbit_ids=orbit_ids,
+        orbit_slugs=orbit_slugs,
+        following_ids=following_ids,
+        since=since,
+        skip=skip,
+        limit=lim,
+    )
+    results = await aggregate_to_list(Post, pipeline, length=lim + 1)
+    posts = []
+    for r in results:
+        strip_ranking_fields(r)
+        posts.append(Post.model_validate(r))
+
+    if not posts and skip == 0:
+        fallback = (
+            await Post.find(
+                Post.isDeleted == False,
+                Post.replyToId == None,
+            )
+            .sort(-Post.createdAt)
+            .limit(lim + 1)
+            .to_list()
+        )
+        posts = fallback
+
     has_more = len(posts) > lim
     slice_p = posts[:lim]
     return PaginatedPosts(
@@ -137,7 +135,7 @@ async def trending():
         {"$sort": {"count": -1}},
         {"$limit": 10},
     ]
-    rows = await Post.aggregate(pipeline).to_list()
+    rows = await aggregate_to_list(Post, pipeline)
     return {"data": [{"tag": r["_id"], "count": r["count"]} for r in rows]}
 
 

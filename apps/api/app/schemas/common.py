@@ -86,6 +86,7 @@ class PostOut(BaseModel):
     mediaUrls: list[str] = []
     author: UserOut
     orbit: OrbitOut | None = None
+    liveBroadcastId: str | None = None
     replyToId: str | None = None
     repostOfId: str | None = None
     hashtags: list[str] = []

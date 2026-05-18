@@ -90,3 +90,31 @@ async def trending_top(limit: int = 10) -> list[tuple[str, float]]:
         return []
     rows = await _client.zrevrange("trending:hashtags", 0, limit - 1, withscores=True)  # type: ignore[union-attr]
     return [(r[0], r[1]) for r in rows]
+
+
+LIVE_PRESENCE_TTL = 7200
+
+
+def _live_presence_key(channel_id: str, user_id: str) -> str:
+    return f"live:presence:{channel_id}:{user_id}"
+
+
+async def live_presence_join(channel_id: str, user_id: str) -> bool:
+    """True when this user was not already counted as present in the room."""
+    if not redis_ok():
+        return True
+    return bool(
+        await _client.set(  # type: ignore[union-attr]
+            _live_presence_key(channel_id, user_id),
+            "1",
+            nx=True,
+            ex=LIVE_PRESENCE_TTL,
+        )
+    )
+
+
+async def live_presence_leave(channel_id: str, user_id: str) -> bool:
+    """True when presence key existed and was removed."""
+    if not redis_ok():
+        return True
+    return bool(await _client.delete(_live_presence_key(channel_id, user_id)))  # type: ignore[union-attr]

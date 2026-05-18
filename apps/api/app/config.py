@@ -1,9 +1,19 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Always load apps/api/.env (not cwd — uvicorn may start from repo root)
+_API_ROOT = Path(__file__).resolve().parent.parent
+_ENV_FILE = _API_ROOT / ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE if _ENV_FILE.is_file() else None,
+        extra="ignore",
+        populate_by_name=True,
+    )
 
     node_env: str = Field(default="development", validation_alias="NODE_ENV")
     port: int = Field(default=4000, validation_alias="PORT")
@@ -35,6 +45,10 @@ class Settings(BaseSettings):
 
     api_public_url: str = Field(default="http://localhost:4000", validation_alias="API_PUBLIC_URL")
     socket_path: str = Field(default="/socket.io", validation_alias="SOCKET_PATH")
+
+    livekit_url: str = Field(default="", validation_alias="LIVEKIT_URL")
+    livekit_api_key: str = Field(default="", validation_alias="LIVEKIT_API_KEY")
+    livekit_api_secret: str = Field(default="", validation_alias="LIVEKIT_API_SECRET")
 
 
 settings = Settings()
