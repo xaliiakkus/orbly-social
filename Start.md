@@ -7,7 +7,7 @@ Bu dosya, monorepo’yu yerelde çalıştırmak için gereken adımları özetle
 ## Gereksinimler
 
 - **Node.js** 20+
-- **pnpm** 10+ (`corepack enable` ile etkinleştirilebilir)
+- **Yarn** 4+ (`corepack enable` ile etkinleştirilebilir)
 - **Docker** (yerel MongoDB için)
 
 ---
@@ -16,7 +16,7 @@ Bu dosya, monorepo’yu yerelde çalıştırmak için gereken adımları özetle
 
 ```bash
 cd orbly-social
-pnpm install
+yarn install
 ```
 
 ---
@@ -64,7 +64,7 @@ CORS_ORIGIN=http://localhost:3000,http://localhost:8081
 
 ```bash
 # Proje kökünden
-MONGODB_URI=mongodb://127.0.0.1:27018/orbly pnpm db:seed
+MONGODB_URI=mongodb://127.0.0.1:27018/orbly yarn db:seed
 ```
 
 **Demo hesap**
@@ -89,7 +89,7 @@ cp .env.example .env
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 4000
 ```
 
-**veya proje kökünden:** `pnpm dev:api` (aynı uvicorn komutunu çalıştırır)
+**veya proje kökünden:** `yarn dev:api` (aynı uvicorn komutunu çalıştırır)
 
 API: **http://localhost:4000**
 
@@ -164,10 +164,10 @@ Detaylı ürün ve şema tanımları için `README.md` dosyasına bakın.
 
 ```bash
 # Web (Next.js)
-pnpm dev:web
+yarn dev:web
 
 # Tüm workspace (turbo)
-pnpm dev
+yarn dev
 ```
 
 ---
@@ -188,9 +188,9 @@ netstat -ano | findstr :4000
 
 Ardından ilgili PID’yi sonlandır veya `apps/api/.env` içinde `PORT` değiştir.
 
-### `pnpm --filter @orbly/api lint` / `tsc` çok yavaş veya bellek hatası
+### `yarn workspace @orbly/api lint` / `tsc` çok yavaş veya bellek hatası
 
-Geliştirmede API **`tsx`** ile çalışır; paketler kaynak dosyadan (`packages/*/src`) yüklenir. Tam `tsc` build CI veya production için ayrıca ayarlanabilir — yerel `pnpm dev:api` için gerekli değildir.
+Geliştirmede API **`tsx`** ile çalışır; paketler kaynak dosyadan (`packages/*/src`) yüklenir. Tam `tsc` build CI veya production için ayrıca ayarlanabilir — yerel `yarn dev:api` için gerekli değildir.
 
 ### Mongoose “Duplicate schema index” uyarısı
 
@@ -203,10 +203,10 @@ Next.js `.next` önbelleği bozulmuş (genelde derleme hatası sırasında `dev`
 ```bash
 cd apps/web
 # Dev sunucusunu durdur (Ctrl+C), sonra:
-pnpm dev:clean
+yarn dev:clean
 ```
 
-veya manuel: `apps/web/.next` klasörünü sil, ardından `pnpm dev`.
+veya manuel: `apps/web/.next` klasörünü sil, ardından `yarn dev`.
 
 ---
 

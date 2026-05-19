@@ -5,6 +5,7 @@ import { useGifSearch } from "@orbly/features";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { MediaImage } from "@/components/ui/media-image";
 import { cn } from "@/lib/cn";
 
 export function GifPicker({
@@ -80,10 +81,11 @@ export function GifPicker({
                   onClose();
                 }}
               >
-                <img
+                <MediaImage
                   src={gif.previewUrl}
                   alt=""
-                  className="w-full h-28 object-cover"
+                  className="h-28 w-full"
+                  sizes="50vw"
                 />
               </button>
             ))}

@@ -68,7 +68,7 @@ export function LiveBroadcastView({
     (patch: Partial<LiveChannelPublic> | LiveChannelPublic) => {
       setConnect((prev) => {
         if (!prev) return prev;
-        let manage =
+        const manage =
           patch.canManageRoom ?? prev.channel.canManageRoom ?? isHost;
         let merged = mergeLiveChannel(prev.channel, patch, manage);
 

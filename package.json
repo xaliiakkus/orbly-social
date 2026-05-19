@@ -1,28 +1,30 @@
 {
   "name": "orbly-social",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "dev:api": "pnpm --filter @orbly/api dev",
-    "dev:web": "pnpm --filter web dev",
-    "dev:mobile": "pnpm --filter mobile dev",
-    "db:seed": "cd apps/api && python seed.py",
-    "generate:icons": "pnpm --filter mobile generate:icons"
+    "dev:api": "yarn workspace @orbly/api dev",
+    "dev:web": "yarn workspace web dev",
+    "dev:mobile": "yarn workspace mobile dev",
+    "db:seed": "cd apps/orbly-social-api && python seed.py",
+    "generate:icons": "yarn workspace mobile generate:icons"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   },
-  "packageManager": "pnpm@10.30.0",
+  "packageManager": "yarn@4.9.2",
   "engines": {
     "node": ">=20"
   },
-  "pnpm": {
-    "overrides": {
-      "react": "19.1.0",
-      "react-dom": "19.1.0"
-    }
+  "resolutions": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   }
 }

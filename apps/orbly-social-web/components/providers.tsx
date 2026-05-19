@@ -27,8 +27,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }}
         >
           <SessionSync />
-          {/* @types/react sürüm uyumu (features ↔ web) */}
-          {children as any}
+          {children}
         </OrblyProvider>
       </QueryClientProvider>
     </SessionProvider>

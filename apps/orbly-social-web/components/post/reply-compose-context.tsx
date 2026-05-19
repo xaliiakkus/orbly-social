@@ -29,7 +29,7 @@ export function ReplyComposeProvider({ children }: { children: React.ReactNode }
 
   return (
     <ReplyComposeContext.Provider value={value}>
-      {children as any}
+      {children}
     </ReplyComposeContext.Provider>
   );
 }

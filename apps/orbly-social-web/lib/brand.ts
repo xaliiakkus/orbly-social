@@ -1,4 +1,4 @@
-/** Üretilmiş ikonlar: `pnpm --filter mobile generate:icons` */
+/** Üretilmiş ikonlar: `yarn generate:icons` (apps/orbly-social-web) */
 export const BRAND_ICON_SIZES = [32, 48, 64, 96, 128, 180, 192, 256, 512] as const;
 
 export type BrandIconSize = (typeof BRAND_ICON_SIZES)[number];

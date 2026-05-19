@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Avatar } from "@/components/ui/avatar";
+import { MediaImage } from "@/components/ui/media-image";
 import { ProfileField } from "@/components/profile/profile-field";
 import { useAuthStore } from "@/lib/auth-store";
 import { api } from "@/lib/api";
@@ -180,7 +181,12 @@ export function EditProfileModal({
 
         <div className="relative h-[140px] bg-bg-secondary overflow-hidden">
           {bannerSrc ? (
-            <img src={bannerSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <MediaImage
+              src={bannerSrc}
+              alt=""
+              className="absolute inset-0 h-full w-full"
+              sizes="100vw"
+            />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[#3a3a3a] to-bg-secondary" />
           )}

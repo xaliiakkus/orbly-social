@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { resolveMediaUrl } from "@/lib/media-url";
 import { cn } from "@/lib/cn";
 
@@ -15,16 +17,38 @@ const sizes = {
   xl: "h-32 w-32 text-3xl",
 };
 
+const imageSizes: Record<NonNullable<AvatarProps["size"]>, string> = {
+  sm: "32px",
+  md: "40px",
+  lg: "48px",
+  xl: "134px",
+};
+
+function needsUnoptimized(url: string) {
+  return url.startsWith("blob:") || url.startsWith("data:");
+}
+
 export function Avatar({ src, name, size = "md", className }: AvatarProps) {
   const initial = name.charAt(0).toUpperCase();
   const resolved = resolveMediaUrl(src);
   if (resolved) {
     return (
-      <img
-        src={resolved}
-        alt={name}
-        className={cn("rounded-full object-cover bg-bg-secondary", sizes[size], className)}
-      />
+      <span
+        className={cn(
+          "relative inline-block shrink-0 overflow-hidden rounded-full bg-bg-secondary",
+          sizes[size],
+          className,
+        )}
+      >
+        <Image
+          src={resolved}
+          alt={name}
+          fill
+          sizes={imageSizes[size]}
+          unoptimized={needsUnoptimized(resolved)}
+          className="object-cover"
+        />
+      </span>
     );
   }
   return (

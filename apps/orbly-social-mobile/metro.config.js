@@ -13,7 +13,7 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
-// pnpm + LiveKit postinstall geçici klasörleri Metro'yu çökertmesin (Windows)
+// LiveKit postinstall geçici klasörleri Metro'yu çökertmesin (Windows)
 config.resolver.blockList = [
   ...(Array.isArray(config.resolver.blockList)
     ? config.resolver.blockList
@@ -21,7 +21,6 @@ config.resolver.blockList = [
       ? [config.resolver.blockList]
       : []),
   /react-native-webrtc_tmp_/,
-  /[\\/]node_modules[\\/]\.pnpm[\\/].*webrtc_tmp_/,
 ];
 
 // Tek React / React Query kopyası — monorepo'da çift paket context hatasını önler

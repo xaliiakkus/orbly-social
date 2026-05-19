@@ -4,6 +4,7 @@ import { BadgeCheck, Calendar, Link2, MapPin } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
+import { MediaImage } from "@/components/ui/media-image";
 import { resolveMediaUrl } from "@/lib/media-url";
 import type { UserPublic } from "@orbly/types";
 
@@ -47,7 +48,12 @@ export function ProfileHeader({
     <header>
       <div className="relative w-full aspect-[3/1] max-h-[200px] min-h-[122px] bg-bg-secondary overflow-hidden">
         {banner ? (
-          <img src={banner} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <MediaImage
+            src={banner}
+            alt=""
+            className="absolute inset-0 h-full w-full"
+            sizes="100vw"
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#333] via-bg-secondary to-bg-primary" />
         )}

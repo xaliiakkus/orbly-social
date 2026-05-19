@@ -261,11 +261,11 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
         {(mediaPreview.length > 0 || gifUrls.length > 0) && (
           <div className="flex gap-2 mt-3 flex-wrap">
             {mediaPreview.map((url) => (
-              <img
+              <MediaImage
                 key={url}
                 src={url}
                 alt=""
-                className="h-24 w-24 object-cover rounded-2xl border border-border"
+                className="h-24 w-24 rounded-2xl border border-border"
               />
             ))}
             {gifUrls.map((url) => (

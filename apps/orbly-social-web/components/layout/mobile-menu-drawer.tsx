@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -45,7 +44,6 @@ export function MobileMenuDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const removeAccount = useDeviceAccountsStore((s) => s.removeAccount);

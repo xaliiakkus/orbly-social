@@ -1,6 +1,6 @@
 {
-  "source": "orbly-logo/logo.png",
-  "generatedAt": "2026-05-19T08:32:32.213Z",
+  "source": "public/icons/app_logo.png",
+  "generatedAt": "2026-05-19T10:37:53.442Z",
   "sizes": [
     32,
     48,
@@ -12,17 +12,8 @@
     256,
     512
   ],
-  "mobile": {
-    "iconsDir": "assets/icons",
-    "icon": "assets/images/icon.png",
-    "adaptiveIcon": "assets/images/adaptive-icon.png",
-    "splashIcon": "assets/images/splash-icon.png",
-    "favicon": "assets/images/favicon.png"
-  },
-  "web": {
-    "iconsDir": "public/icons",
-    "appIcon": "app/icon.png",
-    "appleIcon": "app/apple-icon.png",
-    "favicon": "app/favicon.ico"
+  "resize": {
+    "fit": "cover",
+    "position": "centre"
   }
 }

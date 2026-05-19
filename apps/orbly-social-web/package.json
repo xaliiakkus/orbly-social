@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:icons": "pnpm --filter mobile generate:icons"
+    "generate:icons": "node scripts/generate-web-icons.mjs"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.21",
@@ -30,6 +30,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "sharp": "^0.34.5",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20",
     "@types/react": "^18",
