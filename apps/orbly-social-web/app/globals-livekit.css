@@ -1,0 +1,14 @@
+/* LiveKit yayın alanı — uygulama temasına uyum */
+[data-lk-theme="default"] {
+  --lk-bg: #000;
+  --lk-control-bar-bg: rgb(9 9 11);
+}
+
+.lk-room-container {
+  height: 100%;
+}
+
+.lk-video-track {
+  width: 100%;
+  height: 100%;
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@orbly/features",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orbly/api-client": "file:../api-client",
+    "@orbly/types": "file:../types",
+    "@tanstack/react-query": "^5.56.2",
+    "@types/react": "^18.3.28"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "react": "19.1.0",
+    "typescript": "^5.8.3"
+  }
+}
