@@ -21,6 +21,7 @@ from app.services.feed_fanout import fanout_post
 from app.services.feed_ranking import resolve_orbit_from_hashtags
 from app.services.posts import enrich_posts, extract_hashtags, extract_mentions
 from app.services.realtime import emit_notification
+from app.services.post_thread import get_thread_root_id
 from app.services.realtime_broadcast import broadcast_post_reply, broadcast_post_stats
 from app.services.redis_client import trending_incr
 from app.services.serializers import post_out, user_out
@@ -93,6 +94,9 @@ async def create_post(user_id: str | None, data: dict[str, Any]) -> dict[str, An
         await Post.find_one(Post.id == PydanticObjectId(body.replyToId)).update(
             {"$inc": {"stats.replyCount": 1}}
         )
+        root_id = await get_thread_root_id(body.replyToId)
+        if root_id != PydanticObjectId(body.replyToId):
+            await Post.find_one(Post.id == root_id).update({"$inc": {"stats.replyCount": 1}})
         if parent and str(parent.authorId) != user_id:
             await _notify(str(parent.authorId), user_id, "reply", post.id)
         author = await User.get(user_id)

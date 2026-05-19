@@ -59,6 +59,7 @@ export function useComposePost() {
       if (vars.replyToId) {
         void qc.invalidateQueries({ queryKey: ["post", vars.replyToId] });
         void qc.invalidateQueries({ queryKey: ["replies", vars.replyToId] });
+        void qc.invalidateQueries({ queryKey: ["replies"] });
       }
     },
   });

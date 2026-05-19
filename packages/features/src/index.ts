@@ -3,6 +3,7 @@ export * from "./onboarding";
 export * from "./context";
 export * from "./format";
 export * from "./theme";
+export * from "./posts/reply-thread";
 export * from "./hooks/use-feed";
 export * from "./hooks/use-post-actions";
 export * from "./hooks/use-post-manage";

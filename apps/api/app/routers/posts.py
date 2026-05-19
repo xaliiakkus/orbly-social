@@ -6,6 +6,7 @@ from app.deps import OptionalUserId, UserId
 from app.models.post import Post
 from app.schemas.common import PaginatedPosts
 from app.schemas.posts import UpdatePostIn
+from app.services.post_thread import list_thread_replies
 from app.services.posts import enrich_posts
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
@@ -41,13 +42,11 @@ async def replies(
     viewer_id: OptionalUserId = None,
 ):
     lim = parse_limit(limit)
-    q = Post.find(Post.replyToId == PydanticObjectId(post_id), Post.isDeleted == False)
-    posts = await q.sort(-Post.id).limit(lim + 1).to_list()
-    has_more = len(posts) > lim
-    slice_p = posts[:lim]
-    last = slice_p[-1] if slice_p else None
+    slice_p = await list_thread_replies(post_id, limit=lim + 1)
+    has_more = len(slice_p) > lim
+    slice_p = slice_p[:lim]
     return PaginatedPosts(
         data=await enrich_posts(slice_p, viewer_id),
-        nextCursor=encode_cursor(last.createdAt, last.id) if has_more and last and getattr(last, "createdAt", None) else (str(last.id) if has_more and last else None),
+        nextCursor=str(slice_p[-1].id) if has_more and slice_p else None,
         hasMore=has_more,
     )
