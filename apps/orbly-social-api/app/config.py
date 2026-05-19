@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Always load apps/api/.env (not cwd — uvicorn may start from repo root)
@@ -17,7 +17,11 @@ class Settings(BaseSettings):
 
     node_env: str = Field(default="development", validation_alias="NODE_ENV")
     port: int = Field(default=4000, validation_alias="PORT")
-    mongodb_uri: str = Field(default="mongodb://127.0.0.1:27018/orbly", validation_alias="MONGODB_URI")
+    mongodb_uri: str = Field(
+        default="mongodb://127.0.0.1:27018/orbly",
+        validation_alias=AliasChoices("MONGODB_URI", "MONGO_URI"),
+    )
+    mongo_db_name: str = Field(default="orbly", validation_alias="MONGO_DB_NAME")
     jwt_secret: str = Field(
         default="change-me-to-a-random-string-at-least-32-chars",
         validation_alias="JWT_SECRET",
