@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "orbly-social-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,9 +13,6 @@
   "dependencies": {
     "@livekit/components-react": "^2.9.21",
     "@livekit/components-styles": "^1.2.0",
-    "@orbly/api-client": "file:./packages/api-client",
-    "@orbly/features": "file:./packages/features",
-    "@orbly/types": "file:./packages/types",
     "@tanstack/react-query": "^5.56.2",
     "clsx": "^2.1.1",
     "jsonwebtoken": "^9.0.2",
@@ -23,8 +20,8 @@
     "lucide-react": "^0.441.0",
     "next": "14.2.35",
     "next-auth": "^4.24.11",
-    "react": "^18",
-    "react-dom": "^18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.2",
     "zustand": "^4.5.5"

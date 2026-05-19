@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { BRAND_LOGO_SRC } from "@/lib/brand";
+import { BRAND_LOGO_SRC, brandLogoDisplaySize } from "@/lib/brand";
 import { cn } from "@/lib/cn";
 
-const LOGO_PX = {
+const LOGO_HEIGHT = {
   sm: 32,
   md: 48,
   lg: 64,
@@ -12,13 +12,7 @@ const LOGO_PX = {
   header: 32,
 } as const;
 
-type LogoSize = keyof typeof LOGO_PX;
-
-function logoSrcForSize(size: LogoSize) {
-  const px = LOGO_PX[size];
-  const mapped = px <= 32 ? 32 : px <= 48 ? 48 : px <= 64 ? 64 : 128;
-  return `/icons/icon-${mapped}.png`;
-}
+type LogoSize = keyof typeof LOGO_HEIGHT;
 
 export function Logo({
   className,
@@ -29,25 +23,26 @@ export function Logo({
   size?: LogoSize;
   linked?: boolean;
 }) {
-  const px = LOGO_PX[size];
-  const src = size === "header" ? BRAND_LOGO_SRC : logoSrcForSize(size);
+  const { width, height } = brandLogoDisplaySize(LOGO_HEIGHT[size]);
   const img = (
     <Image
-      src={src}
-      alt=""
-      width={px}
-      height={px}
-      className={cn("object-contain", className)}
+      src={BRAND_LOGO_SRC}
+      alt="Orbly"
+      width={width}
+      height={height}
+      className="object-contain shrink-0"
       priority={size === "header" || size === "xl"}
     />
   );
 
+  const wrapClass = cn("inline-flex shrink-0 items-center", className);
+
   if (!linked) {
-    return <span className={cn("inline-flex", className)}>{img}</span>;
+    return <span className={wrapClass}>{img}</span>;
   }
 
   return (
-    <Link href="/home" className={cn("inline-flex", className)} aria-label="Orbly ana sayfa">
+    <Link href="/home" className={wrapClass} aria-label="Orbly ana sayfa">
       {img}
     </Link>
   );

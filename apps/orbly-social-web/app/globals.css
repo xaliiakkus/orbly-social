@@ -49,4 +49,54 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .auth-input-glow:focus-within {
+    box-shadow: 0 0 0 1px var(--color-accent), 0 0 20px -4px rgba(29, 155, 240, 0.35);
+  }
+
+  @keyframes auth-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes auth-shimmer {
+    0% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
+  }
+
+  .auth-animate-in {
+    opacity: 0;
+    animation: auth-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .auth-delay-1 {
+    animation-delay: 0.06s;
+  }
+  .auth-delay-2 {
+    animation-delay: 0.12s;
+  }
+  .auth-delay-3 {
+    animation-delay: 0.18s;
+  }
+  .auth-delay-4 {
+    animation-delay: 0.24s;
+  }
+  .auth-delay-5 {
+    animation-delay: 0.3s;
+  }
+
+  .auth-wordmark-shine {
+    background-size: 200% auto;
+    animation: auth-shimmer 6s linear infinite;
+  }
 }

@@ -1,6 +1,6 @@
 {
   "source": "public/icons/app_logo.png",
-  "generatedAt": "2026-05-19T10:37:53.442Z",
+  "generatedAt": "2026-05-19T11:31:29.707Z",
   "sizes": [
     32,
     48,
@@ -13,7 +13,7 @@
     512
   ],
   "resize": {
-    "fit": "cover",
+    "fit": "contain",
     "position": "centre"
   }
 }

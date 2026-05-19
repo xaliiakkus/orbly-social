@@ -1,4 +1,15 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 /** @type {import('next').NextConfig} */
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const orblyPackages = {
+  "@orbly/types": path.join(__dirname, "packages/types/src"),
+  "@orbly/api-client": path.join(__dirname, "packages/api-client/src"),
+  "@orbly/features": path.join(__dirname, "packages/features/src"),
+};
 
 function patternFromUrl(raw) {
   if (!raw) return null;
@@ -36,7 +47,6 @@ function buildImageRemotePatterns() {
     patterns.push(pattern);
   }
 
-  // Yerel ağ (192.168.x.x vb.) — geliştirme ortamında API IP'si değişebilir
   if (process.env.NODE_ENV === "development") {
     patterns.push({ protocol: "http", hostname: "**" });
   }
@@ -45,12 +55,18 @@ function buildImageRemotePatterns() {
 }
 
 const nextConfig = {
-  transpilePackages: ["@orbly/api-client", "@orbly/types", "@orbly/features"],
   eslint: {
     ignoreDuringBuilds: false,
   },
   images: {
     remotePatterns: buildImageRemotePatterns(),
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      ...orblyPackages,
+    };
+    return config;
   },
 };
 

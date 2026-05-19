@@ -1,5 +1,5 @@
 /**
- * public/icons/app_logo.png → icon-32 … icon-512 (letterbox / ekstra siyah yok).
+ * public/icons/app_logo.png → icon-32 … icon-512 (oran korunur, kare kırpma yok).
  * Kullanım: node scripts/generate-web-icons.mjs
  */
 import { writeFile } from "node:fs/promises";
@@ -16,7 +16,11 @@ const ICON_SIZES = [32, 48, 64, 96, 128, 180, 192, 256, 512];
 
 async function resizeIcon(size) {
   return sharp(sourceLogo)
-    .resize(size, size, { fit: "cover", position: "centre" })
+    .resize(size, size, {
+      fit: "contain",
+      position: "centre",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 }
@@ -36,7 +40,7 @@ async function main() {
     source: "public/icons/app_logo.png",
     generatedAt: new Date().toISOString(),
     sizes: ICON_SIZES,
-    resize: { fit: "cover", position: "centre" },
+    resize: { fit: "contain", position: "centre" },
   };
   await writeFile(
     path.join(outDir, "manifest.json"),
