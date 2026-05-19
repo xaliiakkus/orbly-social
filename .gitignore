@@ -1,8 +1,0 @@
-node_modules
-.yarn/install-state.gz
-.yarn/cache
-dist
-.next
-.turbo
-*.log
-.DS_Store
