@@ -3,15 +3,18 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"],
+      "@orbly/types": ["./packages/types/src/index.ts"],
+      "@orbly/api-client": ["./packages/api-client/src/index.ts"],
+      "@orbly/features": ["./packages/features/src/index.ts"]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "packages/**/*.ts",
+    "packages/**/*.tsx"
   ]
 }

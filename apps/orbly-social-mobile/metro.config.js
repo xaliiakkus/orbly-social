@@ -2,16 +2,15 @@ const path = require("path");
 const { getDefaultConfig } = require("expo/metro-config");
 
 const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, "../..");
+
+const orblyPackages = {
+  "@orbly/types": path.join(projectRoot, "packages/types/src"),
+  "@orbly/api-client": path.join(projectRoot, "packages/api-client/src"),
+  "@orbly/features": path.join(projectRoot, "packages/features/src"),
+};
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(projectRoot);
-
-config.watchFolders = [workspaceRoot];
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(workspaceRoot, "node_modules"),
-];
 
 // LiveKit postinstall geçici klasörleri Metro'yu çökertmesin (Windows)
 config.resolver.blockList = [
@@ -23,8 +22,8 @@ config.resolver.blockList = [
   /react-native-webrtc_tmp_/,
 ];
 
-// Tek React / React Query kopyası — monorepo'da çift paket context hatasını önler
 config.resolver.extraNodeModules = {
+  ...orblyPackages,
   react: path.resolve(projectRoot, "node_modules/react"),
   "react-dom": path.resolve(projectRoot, "node_modules/react-dom"),
   "@tanstack/react-query": path.resolve(

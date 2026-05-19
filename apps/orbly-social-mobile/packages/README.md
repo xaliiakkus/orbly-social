@@ -1,6 +1,7 @@
-# Vendored paylaşılan paketler
+# Paylaşılan TS paketleri (yalnızca bu uygulama)
 
-`types`, `api-client`, `features` — monorepo kökündeki `packages/` ile aynı kaynak; **ayrı `mobile` reposuna taşırken** kök `packages/` olmadan derlenebilmesi için burada tutulur.
+`types` → `api-client` → `features` — kod ve bağımlılıklar **yalnızca** `apps/orbly-social-mobile` içindedir.
 
-- `apps/mobile/package.json` içinde `file:./packages/...` ile bağlanır.
-- Kök `packages/` ile drift etmemek için değişiklikleri iki yere veya yalnızca buraya senkron tutun.
+- Her paketin kendi `package.json` ve `node_modules` vardır.
+- Uygulama kökü `@orbly/*` için `file:./packages/...` kullanır.
+- Kök repo `packages/` veya web uygulamasından import/script yok.

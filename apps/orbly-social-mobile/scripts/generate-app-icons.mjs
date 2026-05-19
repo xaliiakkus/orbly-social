@@ -1,6 +1,6 @@
 /**
- * orbly-logo/logo.png → mobile + web ikon/splash seti.
- * Kullanım: pnpm run generate:icons (apps/mobile veya kök)
+ * branding/orbly-logo/logo.png → mobile ikon/splash seti.
+ * Kullanım: yarn generate:icons (apps/orbly-social-mobile içinde)
  */
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -10,17 +10,11 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(__dirname, "..");
-const webRoot = path.resolve(mobileRoot, "../web");
-const repoRoot = path.resolve(mobileRoot, "../..");
-const logoCandidates = [
-  path.join(mobileRoot, "branding", "orbly-logo", "logo.png"),
-  path.join(webRoot, "branding", "orbly-logo", "logo.png"),
-  path.join(repoRoot, "orbly-logo", "logo.png"),
-];
-const sourceLogo = logoCandidates.find((p) => existsSync(p));
-if (!sourceLogo) {
+const sourceLogo = path.join(mobileRoot, "branding", "orbly-logo", "logo.png");
+
+if (!existsSync(sourceLogo)) {
   throw new Error(
-    `logo.png bulunamadı. Şunlardan birine ekleyin:\n${logoCandidates.join("\n")}`,
+    `logo.png bulunamadı: ${sourceLogo}\nbranding/orbly-logo/logo.png dosyasını ekleyin.`,
   );
 }
 
@@ -55,16 +49,12 @@ async function main() {
 
   const mobileIconsDir = path.join(mobileRoot, "assets", "icons");
   const mobileImagesDir = path.join(mobileRoot, "assets", "images");
-  const webPublicIcons = path.join(webRoot, "public", "icons");
-  const webAppDir = path.join(webRoot, "app");
 
   await mkdir(mobileIconsDir, { recursive: true });
   await mkdir(mobileImagesDir, { recursive: true });
-  await mkdir(webPublicIcons, { recursive: true });
 
   console.log(`Kaynak: ${sourceLogo} (${meta.width}×${meta.height})\n`);
 
-  console.log("Mobile");
   for (const size of ICON_SIZES) {
     const buf = await resizeLogo(size);
     const out = await writeIcon(mobileIconsDir, `icon-${size}.png`, buf);
@@ -105,50 +95,18 @@ async function main() {
   await writeIcon(mobileImagesDir, "favicon.png", favicon);
   console.log(`  ✓ assets/images/favicon.png`);
 
-  console.log("\nWeb");
-  for (const size of ICON_SIZES) {
-    const buf = await resizeLogo(size);
-    const out = await writeIcon(webPublicIcons, `icon-${size}.png`, buf);
-    console.log(`  ✓ ${path.relative(webRoot, out)}`);
-  }
-
-  const webAppIcon = await resizeLogo(512);
-  await writeIcon(webAppDir, "icon.png", webAppIcon);
-  console.log(`  ✓ app/icon.png`);
-
-  const appleIcon = await resizeLogo(180);
-  await writeIcon(webAppDir, "apple-icon.png", appleIcon);
-  console.log(`  ✓ app/apple-icon.png`);
-
-  await sharp(await resizeLogo(FAVICON_SIZE)).toFile(path.join(webAppDir, "favicon.ico"));
-  console.log(`  ✓ app/favicon.ico`);
-
   const manifest = {
-    source: path.relative(mobileRoot, sourceLogo).startsWith("..")
-      ? path.relative(repoRoot, sourceLogo).replace(/\\/g, "/")
-      : path.relative(mobileRoot, sourceLogo).replace(/\\/g, "/"),
+    source: "branding/orbly-logo/logo.png",
     generatedAt: new Date().toISOString(),
     sizes: ICON_SIZES,
-    mobile: {
-      iconsDir: "assets/icons",
-      icon: "assets/images/icon.png",
-      adaptiveIcon: "assets/images/adaptive-icon.png",
-      splashIcon: "assets/images/splash-icon.png",
-      favicon: "assets/images/favicon.png",
-    },
-    web: {
-      iconsDir: "public/icons",
-      appIcon: "app/icon.png",
-      appleIcon: "app/apple-icon.png",
-      favicon: "app/favicon.ico",
-    },
+    iconsDir: "assets/icons",
+    icon: "assets/images/icon.png",
+    adaptiveIcon: "assets/images/adaptive-icon.png",
+    splashIcon: "assets/images/splash-icon.png",
+    favicon: "assets/images/favicon.png",
   };
   await writeFile(
     path.join(mobileIconsDir, "manifest.json"),
-    JSON.stringify(manifest, null, 2),
-  );
-  await writeFile(
-    path.join(webPublicIcons, "manifest.json"),
     JSON.stringify(manifest, null, 2),
   );
 

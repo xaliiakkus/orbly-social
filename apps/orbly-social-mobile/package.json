@@ -1,7 +1,16 @@
 {
-  "name": "mobile",
+  "name": "orbly-social-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/types",
+    "packages/api-client",
+    "packages/features"
+  ],
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  },
   "scripts": {
     "dev": "expo start",
     "start": "expo start",
@@ -57,5 +66,5 @@
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "packageManager": "yarn@4.14.1"
 }
