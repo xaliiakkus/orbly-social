@@ -3,6 +3,8 @@ description: Web ve mobile her zaman birlikte güncellenir
 globs:
   - apps/web/**
   - apps/mobile/**
+  - apps/web/packages/**
+  - apps/mobile/packages/**
   - packages/features/**
   - packages/api-client/**
   - packages/types/**
@@ -24,11 +26,11 @@ Orbly.social'da **web** (`apps/web`) ve **mobile** (`apps/mobile`) ayrı ürünl
 
 3. **UI farkı** — Görünüm platforma özgü olabilir (Tailwind vs StyleSheet), davranış aynı kalmalı.
 
-4. **Ortak paketler** — Önce `packages/types` → `packages/api-client` → `packages/features` güncelle; sonra web ve mobile.
+4. **Ortak paketler** — Önce `packages/types` → `packages/api-client` → `packages/features` güncelle; sonra web ve mobile. Ayrıca **aynı kaynak** `apps/web/packages/` ve `apps/mobile/packages/` altında vendored kopyalar olarak tutulur; repo bölünmeden önce bu üçlüyü kök `packages/` ile senkron tut (veya yalnızca vendored kopyada geliştirip köke geri taşı).
 
 ## Kontrol listesi (her PR / değişiklik)
 
-- [ ] `packages/features` güncellendi mi?
+- [ ] `packages/features` (ve gerekiyorsa `apps/web/packages/*`, `apps/mobile/packages/*` vendored kopyalar) güncellendi mi?
 - [ ] `apps/web` güncellendi mi?
 - [ ] `apps/mobile` güncellendi mi?
 - [ ] `.env.example` dosyaları (web + mobile + api) uyumlu mu?

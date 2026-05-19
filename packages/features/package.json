@@ -11,7 +11,7 @@
     "@orbly/api-client": "workspace:*",
     "@orbly/types": "workspace:*",
     "@tanstack/react-query": "^5.56.2",
-    "@types/react": "~19.1.0"
+    "@types/react": "^18.3.28"
   },
   "peerDependencies": {
     "react": ">=18"

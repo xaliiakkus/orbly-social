@@ -98,6 +98,24 @@ export interface AuthResponse {
   tokens: AuthTokens;
 }
 
+export interface NotificationPostStats {
+  likeCount: number;
+  replyCount: number;
+  repostCount: number;
+  viewCount: number;
+}
+
+export interface NotificationPostPreview {
+  id: string;
+  content: string;
+  mediaUrl: string | null;
+  replyToId: string | null;
+  threadRootId?: string;
+  replyToUsername?: string | null;
+  stats?: NotificationPostStats;
+  likedByMe?: boolean;
+}
+
 export interface NotificationItem {
   id: string;
   type: NotificationType;
@@ -105,6 +123,7 @@ export interface NotificationItem {
   isRead: boolean;
   actor: UserPublic | null;
   createdAt: string;
+  postPreview?: NotificationPostPreview | null;
 }
 
 export interface TrendingTag {

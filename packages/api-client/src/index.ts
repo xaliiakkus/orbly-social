@@ -2,6 +2,7 @@ import type {
   AuthResponse,
   ConversationItem,
   MessageItem,
+  NotificationItem,
   OrbitPublic,
   PaginatedResponse,
   PostPublic,
@@ -254,20 +255,19 @@ export function createApiClient(options: ApiClientOptions) {
         ),
     },
     notifications: {
-      list: (cursor?: string) =>
-        request<{
-          data: Array<{
-            id: string;
-            type: string;
-            postId: string | null;
-            isRead: boolean;
-            actor: UserPublic | null;
-            createdAt: string;
-          }>;
+      list: (cursor?: string) => {
+        const params = new URLSearchParams();
+        if (cursor) params.set("cursor", cursor);
+        const q = params.toString();
+        return request<{
+          data: NotificationItem[];
           unreadCount: number;
           nextCursor: string | null;
           hasMore: boolean;
-        }>(`/v1/notifications/${cursor ? `?cursor=${cursor}` : ""}`),
+        }>(`/v1/notifications${q ? `?${q}` : ""}`);
+      },
+      read: (notificationId: string) =>
+        rpc<{ success: boolean }>("notifications.read", { notificationId }),
       readAll: () => rpc<{ success: boolean }>("notifications.readAll", {}),
     },
     bookmarks: {
