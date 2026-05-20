@@ -27,6 +27,11 @@ export async function withoutUnauthorizedLogout<T>(fn: () => Promise<T>): Promis
 export const api = createApiClient({
   baseUrl: getApiBaseUrl(),
   getAccessToken: () => useAuthStore.getState().accessToken,
+  getRefreshToken: () => useAuthStore.getState().refreshToken,
+  onTokensRefreshed: (payload) => {
+    useAuthStore.getState().setAuth(payload);
+    reconnectSocket();
+  },
   onUnauthorized: () => {
     if (suppressUnauthorizedLogout) return;
     useAuthStore.getState().logout();

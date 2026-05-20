@@ -58,9 +58,11 @@ def _ensure_production_config() -> None:
             "Production requires MONGO_URI (Atlas). Run: fly secrets set MONGO_URI='mongodb+srv://...'"
         )
     _validate_mongo_uri(settings.mongodb_uri)
-    if settings.jwt_secret.startswith("change-me"):
+    insecure = "change-me-to-a-random-string-at-least-32-chars"
+    if settings.jwt_secret == insecure or len(settings.jwt_secret) < 32:
         raise RuntimeError(
-            "Production requires JWT_SECRET. Run: fly secrets set JWT_SECRET='...'"
+            "Production requires JWT_SECRET (min 32 chars, not the default placeholder). "
+            "Set in fly.toml [env] or: fly secrets set JWT_SECRET='...'"
         )
 
 
@@ -133,16 +135,17 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 @app.get("/health", tags=["System"])
 async def health():
-    from app.services.cloudinary_media import is_configured as cloudinary_configured
     from app.services.livekit_egress import egress_storage_configured
     from app.services.livekit_tokens import livekit_configured
+    from app.services.media_storage import storage_status
     from app.services.redis_client import redis_ok
 
+    media = storage_status()
     return {
         "status": "ok",
         "service": "orbly-api",
         "redis": settings.redis_enabled and redis_ok(),
-        "cloudinary": cloudinary_configured(),
+        "media": media,
         "live": livekit_configured(),
         "vod": egress_storage_configured(),
     }

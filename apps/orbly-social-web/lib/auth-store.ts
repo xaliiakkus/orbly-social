@@ -36,6 +36,13 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, accessToken: null, refreshToken: null, hydrated: false }),
       isAuthenticated: () => !!get().accessToken,
     }),
-    { name: "orbly-auth" },
+    {
+      name: "orbly-auth",
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+      }),
+    },
   ),
 );

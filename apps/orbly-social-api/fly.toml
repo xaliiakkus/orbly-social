@@ -6,11 +6,53 @@ primary_region = 'gru'
 [build]
 
 [env]
+  # Uygulama (Fly proxy 8080 — lokal .env PORT=4000 kullanma)
   PORT = '8080'
   NODE_ENV = 'production'
+  API_PUBLIC_URL = 'https://api.orbly.social'
+
+  # MongoDB
+  MONGO_URI = 'mongodb+srv://xaliakkus_db_user:34Patron47%26@cluster0.okyk1jy.mongodb.net/?appName=Cluster0'
   MONGO_DB_NAME = 'orbly'
-  REDIS_ENABLED = 'false'
-  # MONGO_URI, JWT_SECRET, CORS_ORIGIN → fly secrets set (aşağıdaki README / komutlar)
+
+  # Auth
+  JWT_SECRET = 'orbly-prod-jwt-8f3k2m9x7v1n4q6w2e5r8t0y3u6i9o1p4a7s2d5f9g2h6j8k1l4z7x0c3v6b9n2m5'
+  JWT_ACCESS_EXPIRES_MIN = '15'
+  JWT_REFRESH_EXPIRES_DAYS = '7'
+  CORS_ORIGIN = 'http://localhost:3000,http://localhost:8081,https://orbly.social,https://www.orbly.social'
+
+  # Redis (Upstash)
+  REDIS_URL = 'rediss://default:gQAAAAAAAgRVAAIgcDFkMjc2ZGVmY2VmYzY0MTZjOTMxMjgxMmY5NTQwNTlkMA@divine-dolphin-132181.upstash.io:6379'
+  REDIS_ENABLED = 'true'
+
+  # iDrive e2 (S3)
+  IDRIVE_ENDPOINT = 'https://s3.us-west-2.idrivee2.com'
+  IDRIVE_REGION = 'us-west-2'
+  IDRIVE_ACCESS_KEY_ID = 'q8JEeV4KSjgngrPw27Fo'
+  IDRIVE_SECRET_ACCESS_KEY = 'CTvKJH0lsCN3mndwOgSrYCUg408LAEnkyNhyhQGr'
+  IDRIVE_BUCKET = 'orbly-bucket'
+  IDRIVE_PUBLIC_URL = 'https://s3.us-west-2.idrivee2.com/orbly-bucket'
+
+  # Cloudinary
+  CLOUDINARY_CLOUD_NAME = 'dbtyygx26'
+  CLOUDINARY_API_KEY = '865818544526176'
+  CLOUDINARY_API_SECRET = '6H9jsaT5ClNSUzhF5z7OhTUHfcc'
+  CLOUDINARY_URL = 'cloudinary://865818544526176:6H9jsaT5ClNSUzhF5z7OhTUHfcc@dbtyygx26'
+
+  # Medya
+  MEDIA_LOCAL_FALLBACK = 'false'
+
+  # OAuth (boş = kapalı)
+  GOOGLE_CLIENT_ID = ''
+  APPLE_CLIENT_ID = ''
+
+  # Tenor GIF
+  TENOR_API_KEY = ''
+
+  # LiveKit
+  LIVEKIT_URL = 'wss://orbly-social-x8mj5pqi.livekit.cloud'
+  LIVEKIT_API_KEY = 'APIeZHzK92NQGD6'
+  LIVEKIT_API_SECRET = 'eMOOfJfxkYSeAQHURivYqOflEmLvCdnfllCfxYwOF6EA'
 
 [http_service]
   internal_port = 8080

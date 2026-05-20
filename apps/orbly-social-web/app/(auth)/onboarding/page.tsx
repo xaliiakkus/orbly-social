@@ -58,7 +58,13 @@ export default function OnboardingPage() {
         onboarded: true,
       });
       setUser(res.user);
-      await updateSession({ orblyUser: res.user });
+      const tokens = useAuthStore.getState();
+      await updateSession({
+        orblyUser: res.user,
+        accessToken: tokens.accessToken ?? undefined,
+        refreshToken: tokens.refreshToken ?? undefined,
+        accessExpiresAt: Date.now() + 900 * 1000,
+      });
       router.push("/home");
     } catch (err) {
       setError(formatUserError(err));

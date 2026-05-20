@@ -11,6 +11,26 @@ from fastapi import HTTPException
 
 from app.config import settings
 
+_CONTENT_TYPE_BY_EXT: dict[str, str] = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+}
+
+
+def normalize_content_type(filename: str, content_type: str) -> str:
+    """Tarayıcıdan gelen boş veya application/octet-stream tiplerini düzelt."""
+    ct = (content_type or "").split(";")[0].strip().lower()
+    if ct and ct != "application/octet-stream":
+        return ct
+    ext = Path(filename).suffix.lower()
+    return _CONTENT_TYPE_BY_EXT.get(ext, "image/jpeg")
+
 
 def is_configured() -> bool:
     if settings.cloudinary_url:
@@ -51,6 +71,7 @@ def create_signed_upload(
     folder: str = "media",
 ) -> dict:
     _require_config()
+    content_type = normalize_content_type(filename, content_type)
     cloud_name = cloudinary.config().cloud_name
     api_key = cloudinary.config().api_key
     api_secret = cloudinary.config().api_secret
@@ -58,10 +79,15 @@ def create_signed_upload(
         raise HTTPException(503, "Cloudinary credentials incomplete")
 
     ext = Path(filename).suffix.lower() or ".bin"
-    key = f"orbly/{folder}/{uuid.uuid4().hex}{ext}"
+    public_id = uuid.uuid4().hex
     folder_path = f"orbly/{folder}"
+    key = f"{folder_path}/{public_id}{ext}"
     timestamp = int(time.time())
-    params_to_sign = {"timestamp": timestamp, "folder": folder_path}
+    params_to_sign: dict[str, str | int] = {
+        "timestamp": timestamp,
+        "folder": folder_path,
+        "public_id": public_id,
+    }
     signature = cloudinary.utils.api_sign_request(params_to_sign, api_secret)
     endpoint = _upload_endpoint(content_type)
 
@@ -76,6 +102,7 @@ def create_signed_upload(
             "timestamp": str(timestamp),
             "signature": signature,
             "folder": folder_path,
+            "public_id": public_id,
         },
     }
 

@@ -1,7 +1,7 @@
 import type { PresignResponse } from "@orbly/types";
 import { Platform } from "react-native";
 
-import { resolveApiUrl } from "@/lib/api-url";
+import { getApiBaseUrl, resolveApiUrl } from "@/lib/api-url";
 import { api } from "./api";
 import { useAuthStore } from "./auth-store";
 
@@ -46,27 +46,66 @@ function formFile(uri: string, name: string, type: string) {
   } as unknown as Blob;
 }
 
+function parseCloudinaryError(raw: string): string {
+  try {
+    const body = JSON.parse(raw) as { error?: { message?: string } };
+    if (body.error?.message) return body.error.message;
+  } catch {
+    /* ignore */
+  }
+  return "Dosya yüklenemedi. Tekrar dene.";
+}
+
+async function uploadViaServer(
+  uri: string,
+  filename: string,
+  contentType: string,
+  folder: string,
+): Promise<string> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", formFile(uri, filename, contentType));
+  const base = getApiBaseUrl();
+  const res = await fetch(
+    `${base}/v1/media/upload?folder=${encodeURIComponent(folder)}`,
+    {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    },
+  );
+  if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
+  const data = (await res.json()) as { publicUrl: string };
+  return resolveApiUrl(data.publicUrl);
+}
+
 async function uploadWithPresign(
   uri: string,
   filename: string,
   contentType: string,
+  folder: string,
   presign: PresignResponse,
 ): Promise<string> {
   const token = useAuthStore.getState().accessToken;
   const uploadUrl = resolveApiUrl(presign.uploadUrl);
 
   if (presign.cloudinary && presign.fields) {
-    const form = new FormData();
-    form.append("file", formFile(uri, filename, contentType));
-    for (const [key, value] of Object.entries(presign.fields)) {
-      form.append(key, value);
+    try {
+      const form = new FormData();
+      for (const [key, value] of Object.entries(presign.fields)) {
+        form.append(key, String(value));
+      }
+      form.append("file", formFile(uri, filename, contentType));
+      const res = await fetch(uploadUrl, { method: "POST", body: form });
+      const raw = await res.text();
+      if (!res.ok) throw new Error(parseCloudinaryError(raw));
+      const data = JSON.parse(raw) as { secure_url?: string; url?: string };
+      const url = data.secure_url ?? data.url;
+      if (!url) throw new Error("Dosya yüklenemedi. Tekrar dene.");
+      return url;
+    } catch {
+      return uploadViaServer(uri, filename, contentType, folder);
     }
-    const res = await fetch(uploadUrl, { method: "POST", body: form });
-    if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
-    const data = (await res.json()) as { secure_url?: string; url?: string };
-    const url = data.secure_url ?? data.url;
-    if (!url) throw new Error("Dosya yüklenemedi. Tekrar dene.");
-    return url;
   }
 
   if (presign.local) {
@@ -93,12 +132,18 @@ async function uploadWithPresign(
   });
   if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
 
+  if (!presign.publicUrl) throw new Error("Dosya yüklenemedi. Tekrar dene.");
   return resolveApiUrl(presign.publicUrl);
 }
 
-export async function uploadImage(uri: string, name: string, type: string): Promise<string> {
+export async function uploadImage(
+  uri: string,
+  name: string,
+  type: string,
+  folder = "media",
+): Promise<string> {
   const contentType = normalizeType(name, type);
   const filename = normalizeName(name, contentType);
-  const presign = await api.media.presign(filename, contentType);
-  return uploadWithPresign(uri, filename, contentType, presign);
+  const presign = await api.media.presign(filename, contentType, folder);
+  return uploadWithPresign(uri, filename, contentType, folder, presign);
 }

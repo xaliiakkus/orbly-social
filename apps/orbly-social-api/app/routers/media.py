@@ -3,9 +3,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from app.commands.media_cmds import presign as presign_cmd
 from app.deps import UserId
 from app.schemas.media import PresignIn
-from app.services.cloudinary_media import is_configured as cloudinary_configured
-from app.services.cloudinary_media import upload_bytes as cloudinary_upload_bytes
-from app.services.r2 import save_local_upload
+from app.services import media_storage
 from app.services.tenor import search_gifs
 
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -52,9 +50,7 @@ async def upload_media(
     file: UploadFile = File(...),
     folder: str = Query(default="media", max_length=50),
 ):
-    """Sunucu üzerinden Cloudinary yükleme (imzalı istemci yüklemesi alternatifi)."""
-    if not cloudinary_configured():
-        raise HTTPException(503, "Cloudinary not configured")
+    """Sunucu yüklemesi — Cloudinary + iDrive ikisi de ayarlıysa ikisine de yazar."""
     ct = file.content_type or "application/octet-stream"
     if ct not in _ALLOWED_TYPES:
         raise HTTPException(400, f"Unsupported type: {ct}")
@@ -63,8 +59,9 @@ async def upload_media(
     if len(data) > limit:
         raise HTTPException(400, f"Max {limit // (1024 * 1024)}MB for this file type")
     name = file.filename or "upload.bin"
-    url = cloudinary_upload_bytes(data, filename=name, content_type=ct, folder=folder)
-    return {"publicUrl": url}
+    return await media_storage.upload_bytes(
+        data, filename=name, content_type=ct, folder=folder
+    )
 
 
 @router.post("/upload-local")
@@ -81,5 +78,7 @@ async def upload_local(
     limit = _MAX_VIDEO_BYTES if ct.startswith("video/") else 5 * 1024 * 1024
     if len(data) > limit:
         raise HTTPException(400, f"Max {limit // (1024 * 1024)}MB per file")
+    from app.services.r2 import save_local_upload
+
     url = await save_local_upload(key, data, ct)
     return {"publicUrl": url}

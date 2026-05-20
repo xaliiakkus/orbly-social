@@ -7,6 +7,11 @@ import { generateAppleClientSecret } from "@/lib/apple-client-secret";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+type AuthTokensPayload = {
+  user: Record<string, unknown>;
+  tokens: { accessToken: string; refreshToken: string; expiresIn: number };
+};
+
 async function exchangeOAuth(body: Record<string, unknown>) {
   const res = await fetch(`${API}/v1/auth/oauth`, {
     method: "POST",
@@ -14,10 +19,7 @@ async function exchangeOAuth(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   if (!res.ok) return null;
-  return res.json() as Promise<{
-    user: Record<string, unknown>;
-    tokens: { accessToken: string; refreshToken: string };
-  }>;
+  return res.json() as Promise<AuthTokensPayload>;
 }
 
 const appleConfigured =
@@ -42,6 +44,56 @@ function appleProviders() {
 }
 
 const devFallbackSecret = "orbly-dev-nextauth-secret-change-in-production!!";
+
+const ACCESS_REFRESH_BUFFER_MS = 60_000;
+
+async function refreshAccessToken(
+  token: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const refreshToken = token.refreshToken as string | undefined;
+  if (!refreshToken) {
+    return { ...token, error: "RefreshAccessTokenError" };
+  }
+
+  const expiresAt = token.accessExpiresAt as number | undefined;
+  if (expiresAt && Date.now() < expiresAt - ACCESS_REFRESH_BUFFER_MS) {
+    return token;
+  }
+
+  try {
+    const res = await fetch(`${API}/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) throw new Error("refresh failed");
+    const data = (await res.json()) as AuthTokensPayload;
+    return {
+      ...token,
+      accessToken: data.tokens.accessToken,
+      refreshToken: data.tokens.refreshToken,
+      orblyUser: data.user,
+      accessExpiresAt: Date.now() + data.tokens.expiresIn * 1000,
+      error: undefined,
+    };
+  } catch {
+    return { ...token, error: "RefreshAccessTokenError" };
+  }
+}
+
+function applyAuthPayload(
+  token: Record<string, unknown>,
+  data: AuthTokensPayload,
+): Record<string, unknown> {
+  return {
+    ...token,
+    accessToken: data.tokens.accessToken,
+    refreshToken: data.tokens.refreshToken,
+    orblyUser: data.user,
+    accessExpiresAt: Date.now() + data.tokens.expiresIn * 1000,
+    error: undefined,
+  };
+}
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET ?? devFallbackSecret,
@@ -84,6 +136,7 @@ export const authOptions: NextAuthOptions = {
           name: data.user.displayName as string,
           accessToken: data.tokens.accessToken,
           refreshToken: data.tokens.refreshToken,
+          accessExpiresAt: Date.now() + data.tokens.expiresIn * 1000,
           orblyUser: data.user,
         };
       },
@@ -96,16 +149,21 @@ export const authOptions: NextAuthOptions = {
           accessToken?: string;
           refreshToken?: string;
           orblyUser?: Record<string, unknown>;
+          accessExpiresAt?: number;
         };
         if (patch.accessToken) token.accessToken = patch.accessToken;
         if (patch.refreshToken) token.refreshToken = patch.refreshToken;
         if (patch.orblyUser) token.orblyUser = patch.orblyUser;
+        if (patch.accessExpiresAt) token.accessExpiresAt = patch.accessExpiresAt;
         return token;
       }
       if (user) {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.orblyUser = user.orblyUser;
+        if (user.accessExpiresAt) {
+          token.accessExpiresAt = user.accessExpiresAt;
+        }
       }
       if (account?.provider === "google" && account.id_token) {
         const email =
@@ -124,9 +182,7 @@ export const authOptions: NextAuthOptions = {
           oauthId: account.providerAccountId,
         });
         if (data) {
-          token.accessToken = data.tokens.accessToken;
-          token.refreshToken = data.tokens.refreshToken;
-          token.orblyUser = data.user;
+          Object.assign(token, applyAuthPayload(token, data));
         }
       }
       if (account?.provider === "apple" && account.id_token) {
@@ -142,14 +198,15 @@ export const authOptions: NextAuthOptions = {
           oauthId: account.providerAccountId,
         });
         if (data) {
-          token.accessToken = data.tokens.accessToken;
-          token.refreshToken = data.tokens.refreshToken;
-          token.orblyUser = data.user;
+          Object.assign(token, applyAuthPayload(token, data));
         }
       }
-      return token;
+      return refreshAccessToken(token);
     },
     async session({ session, token }) {
+      if (token.error === "RefreshAccessTokenError") {
+        session.error = "RefreshAccessTokenError";
+      }
       session.accessToken = token.accessToken as string;
       session.refreshToken = token.refreshToken as string;
       session.orblyUser = token.orblyUser as Record<string, unknown>;

@@ -118,8 +118,8 @@ export function EditProfileModal({
     try {
       let bannerUrl = user.bannerUrl;
       let avatarUrl = user.avatarUrl;
-      if (bannerFile) bannerUrl = await uploadFile(bannerFile);
-      if (avatarFile) avatarUrl = await uploadFile(avatarFile);
+      if (bannerFile) bannerUrl = await uploadFile(bannerFile, "profiles");
+      if (avatarFile) avatarUrl = await uploadFile(avatarFile, "avatars");
 
       const res = await api.users.updateMe({
         displayName: displayName.trim() || user.displayName,

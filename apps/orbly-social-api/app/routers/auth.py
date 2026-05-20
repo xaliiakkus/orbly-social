@@ -4,7 +4,7 @@ from app.commands.registry import dispatch
 from app.deps import UserId
 from app.errors import AppError
 from app.models.user import User
-from app.schemas.auth import LoginIn, OAuthIn
+from app.schemas.auth import LoginIn, OAuthIn, OnboardingIn, RefreshIn
 from app.services.serializers import user_out
 
 router = APIRouter()
@@ -38,5 +38,26 @@ async def oauth_login(body: OAuthIn):
     """Server-side bootstrap (NextAuth). Clients should use socket auth.oauth."""
     try:
         return await dispatch("auth.oauth", None, body.model_dump())
+    except AppError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+
+
+@router.post("/refresh")
+async def refresh_token(body: RefreshIn):
+    """Renew access token when the short-lived JWT expires."""
+    try:
+        return await dispatch("auth.refresh", None, body.model_dump())
+    except AppError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+
+
+@router.patch("/onboarding")
+async def onboarding_http(body: OnboardingIn, user_id: UserId):
+    try:
+        return await dispatch(
+            "auth.onboarding",
+            user_id,
+            body.model_dump(exclude_unset=True),
+        )
     except AppError as exc:
         raise HTTPException(exc.status, exc.message) from exc

@@ -6,11 +6,14 @@ declare module "next-auth" {
     accessToken?: string;
     refreshToken?: string;
     orblyUser?: Record<string, unknown>;
+    accessExpiresAt?: number;
+    error?: string;
   }
 
   interface User {
     accessToken?: string;
     refreshToken?: string;
+    accessExpiresAt?: number;
     orblyUser?: Record<string, unknown>;
   }
 }
@@ -19,6 +22,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     accessToken?: string;
     refreshToken?: string;
+    accessExpiresAt?: number;
     orblyUser?: Record<string, unknown>;
+    error?: string;
   }
 }

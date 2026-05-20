@@ -166,6 +166,8 @@ export interface PresignResponse {
   method: string;
   local?: boolean;
   cloudinary?: boolean;
+  idrive?: boolean;
+  storage?: "cloudinary" | "idrive" | "local";
   fields?: Record<string, string>;
 }
 

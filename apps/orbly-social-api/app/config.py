@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Always load apps/api/.env (not cwd — uvicorn may start from repo root)
@@ -41,12 +41,71 @@ class Settings(BaseSettings):
     r2_secret_access_key: str | None = Field(default=None, validation_alias="R2_SECRET_ACCESS_KEY")
     r2_bucket: str = Field(default="orbly-media", validation_alias="R2_BUCKET")
     r2_public_url: str | None = Field(default=None, validation_alias="R2_PUBLIC_URL")
+    r2_region: str = Field(default="auto", validation_alias="R2_REGION")
+
+    idrive_endpoint: str | None = Field(default=None, validation_alias="IDRIVE_ENDPOINT")
+    idrive_access_key_id: str | None = Field(
+        default=None, validation_alias=AliasChoices("IDRIVE_ACCESS_KEY_ID", "IDRIVE_ACCESS_KEY")
+    )
+    idrive_secret_access_key: str | None = Field(
+        default=None, validation_alias=AliasChoices("IDRIVE_SECRET_ACCESS_KEY", "IDRIVE_SECRET_KEY")
+    )
+    idrive_bucket: str | None = Field(default=None, validation_alias="IDRIVE_BUCKET")
+    idrive_public_url: str | None = Field(default=None, validation_alias="IDRIVE_PUBLIC_URL")
+    idrive_region: str = Field(default="us-west-2", validation_alias="IDRIVE_REGION")
+
     media_local_fallback: bool = Field(default=True, validation_alias="MEDIA_LOCAL_FALLBACK")
 
     cloudinary_cloud_name: str | None = Field(default=None, validation_alias="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: str | None = Field(default=None, validation_alias="CLOUDINARY_API_KEY")
     cloudinary_api_secret: str | None = Field(default=None, validation_alias="CLOUDINARY_API_SECRET")
     cloudinary_url: str | None = Field(default=None, validation_alias="CLOUDINARY_URL")
+
+    @field_validator("cloudinary_url", mode="before")
+    @classmethod
+    def _strip_cloudinary_url(cls, v: object) -> object:
+        if isinstance(v, str) and v.startswith("CLOUDINARY_URL="):
+            return v.removeprefix("CLOUDINARY_URL=").strip()
+        return v
+
+    @field_validator(
+        "r2_endpoint",
+        "idrive_endpoint",
+        "r2_public_url",
+        "idrive_public_url",
+        mode="before",
+    )
+    @classmethod
+    def _ensure_https_endpoint(cls, v: object) -> object:
+        if isinstance(v, str) and v and not v.startswith("http"):
+            return f"https://{v.lstrip('/')}"
+        return v
+
+    @property
+    def s3_endpoint(self) -> str | None:
+        return self.idrive_endpoint or self.r2_endpoint
+
+    @property
+    def s3_access_key_id(self) -> str | None:
+        return self.idrive_access_key_id or self.r2_access_key_id
+
+    @property
+    def s3_secret_access_key(self) -> str | None:
+        return self.idrive_secret_access_key or self.r2_secret_access_key
+
+    @property
+    def s3_bucket(self) -> str:
+        return self.idrive_bucket or self.r2_bucket
+
+    @property
+    def s3_public_url(self) -> str | None:
+        return self.idrive_public_url or self.r2_public_url
+
+    @property
+    def s3_region(self) -> str:
+        if self.idrive_endpoint:
+            return self.idrive_region
+        return self.r2_region
 
     google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")
     apple_client_id: str | None = Field(default=None, validation_alias="APPLE_CLIENT_ID")
