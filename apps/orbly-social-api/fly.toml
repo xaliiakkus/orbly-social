@@ -1,7 +1,7 @@
 # fly.toml — https://fly.io/docs/reference/configuration/
 
 app = 'orbly-social-api'
-primary_region = 'gru'
+primary_region = 'ams'
 
 [build]
 
@@ -30,24 +30,26 @@ primary_region = 'gru'
   IDRIVE_REGION = 'us-west-2'
   IDRIVE_ACCESS_KEY_ID = 'q8JEeV4KSjgngrPw27Fo'
   IDRIVE_SECRET_ACCESS_KEY = 'CTvKJH0lsCN3mndwOgSrYCUg408LAEnkyNhyhQGr'
-  IDRIVE_BUCKET = 'orbly-bucket'
-  IDRIVE_PUBLIC_URL = 'https://s3.us-west-2.idrivee2.com/orbly-bucket'
+  IDRIVE_BUCKET = 'orbly'
+  IDRIVE_PUBLIC_URL = 'https://s3.us-west-2.idrivee2.com/orbly'
 
   # Cloudinary
   CLOUDINARY_CLOUD_NAME = 'dbtyygx26'
-  CLOUDINARY_API_KEY = '865818544526176'
-  CLOUDINARY_API_SECRET = '6H9jsaT5ClNSUzhF5z7OhTUHfcc'
-  CLOUDINARY_URL = 'cloudinary://865818544526176:6H9jsaT5ClNSUzhF5z7OhTUHfcc@dbtyygx26'
+  CLOUDINARY_API_KEY = '686435389623468'
+  CLOUDINARY_API_SECRET = 'vGW-3X8uK8v77iQk-cyMhBuGO8E'
+  CLOUDINARY_URL = 'cloudinary://686435389623468:vGW-3X8uK8v77iQk-cyMhBuGO8E@dbtyygx26'
 
-  # Medya
+  # Medya — resimler Cloudinary (CDN), videolar iDrive
   MEDIA_LOCAL_FALLBACK = 'false'
+  MEDIA_PREFER_IDRIVE_FOR_IMAGES = 'false'
 
   # OAuth (boş = kapalı)
   GOOGLE_CLIENT_ID = ''
   APPLE_CLIENT_ID = ''
 
-  # Tenor GIF
-  TENOR_API_KEY = ''
+  # GIF (Tenor + Giphy)
+  TENOR_API_KEY = 'LIVDSRZULELA'
+  GIPHY_API_KEY = '9ipq24b6FNGSnazGm83gXfp1vRJ6jaHM'
 
   # LiveKit
   LIVEKIT_URL = 'wss://orbly-social-x8mj5pqi.livekit.cloud'

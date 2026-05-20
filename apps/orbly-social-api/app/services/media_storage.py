@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
+from typing import Literal
 
 from fastapi import HTTPException
 
 from app.config import settings
 from app.services import cloudinary_media, s3_storage
 from app.services.r2 import UPLOAD_DIR, save_local_upload
+
+logger = logging.getLogger(__name__)
+
+StoragePreference = Literal["auto", "cloudinary", "idrive"]
 
 
 def _is_video(content_type: str) -> bool:
@@ -31,12 +37,39 @@ def create_presigned_upload(
     filename: str,
     content_type: str,
     folder: str = "media",
+    storage: StoragePreference = "auto",
 ) -> dict:
     content_type = cloudinary_media.normalize_content_type(filename, content_type)
     has_cdn = cloudinary_media.is_configured()
     has_s3 = s3_storage.is_configured()
 
-    if has_s3 and _is_video(content_type):
+    if storage == "idrive":
+        if not has_s3:
+            raise HTTPException(503, "iDrive e2 not configured")
+        out = s3_storage.create_presigned_upload(
+            filename=filename,
+            content_type=content_type,
+            folder=folder,
+        )
+        out["storage"] = "idrive"
+        return out
+
+    if storage == "cloudinary":
+        if not has_cdn:
+            raise HTTPException(503, "Cloudinary not configured")
+        out = cloudinary_media.create_signed_upload(
+            filename=filename,
+            content_type=content_type,
+            folder=folder,
+        )
+        out["storage"] = "cloudinary"
+        return out
+
+    prefer_idrive_images = (
+        settings.media_prefer_idrive_for_images and has_s3 and _is_image(content_type)
+    )
+
+    if has_s3 and (_is_video(content_type) or prefer_idrive_images):
         out = s3_storage.create_presigned_upload(
             filename=filename,
             content_type=content_type,
@@ -96,33 +129,57 @@ async def upload_bytes(
     filename: str,
     content_type: str,
     folder: str = "media",
+    storage: StoragePreference = "auto",
 ) -> dict[str, str]:
+    content_type = cloudinary_media.normalize_content_type(filename, content_type)
     has_cdn = cloudinary_media.is_configured()
     has_s3 = s3_storage.is_configured()
 
+    if storage == "idrive":
+        if not has_s3:
+            raise HTTPException(503, "iDrive e2 not configured")
+        url = s3_storage.upload_bytes(
+            data, filename=filename, content_type=content_type, folder=folder
+        )
+        return {"publicUrl": url, "archiveUrl": "", "storage": "idrive"}
+
+    if storage == "cloudinary":
+        if not has_cdn:
+            raise HTTPException(503, "Cloudinary not configured")
+        url = cloudinary_media.upload_bytes(
+            data, filename=filename, content_type=content_type, folder=folder
+        )
+        return {"publicUrl": url, "archiveUrl": "", "storage": "cloudinary"}
+
+    # auto: video → iDrive; image → Cloudinary (hızlı), iDrive yalnızca yedek
     if _is_video(content_type) and has_s3:
         url = s3_storage.upload_bytes(
             data, filename=filename, content_type=content_type, folder=folder
         )
         return {"publicUrl": url, "archiveUrl": "", "storage": "idrive"}
 
-    primary: str | None = None
-    archive: str | None = None
+    if has_cdn and _is_image(content_type):
+        try:
+            url = cloudinary_media.upload_bytes(
+                data, filename=filename, content_type=content_type, folder=folder
+            )
+            return {"publicUrl": url, "archiveUrl": "", "storage": "cloudinary"}
+        except Exception as exc:
+            logger.warning("Cloudinary upload failed, trying iDrive: %s", exc)
+            if not has_s3:
+                raise HTTPException(502, "Media upload failed") from exc
+
+    if has_s3:
+        url = s3_storage.upload_bytes(
+            data, filename=filename, content_type=content_type, folder=folder
+        )
+        return {"publicUrl": url, "archiveUrl": "", "storage": "idrive"}
 
     if has_cdn:
-        primary = cloudinary_media.upload_bytes(
+        url = cloudinary_media.upload_bytes(
             data, filename=filename, content_type=content_type, folder=folder
         )
-    if has_s3:
-        archive = s3_storage.upload_bytes(
-            data, filename=filename, content_type=content_type, folder=folder
-        )
-        if not primary:
-            primary, archive = archive, None
-
-    if primary:
-        storage = "dual" if archive else "cloudinary"
-        return {"publicUrl": primary, "archiveUrl": archive or "", "storage": storage}
+        return {"publicUrl": url, "archiveUrl": "", "storage": "cloudinary"}
 
     if settings.media_local_fallback:
         ext = Path(filename).suffix.lower() or ".bin"

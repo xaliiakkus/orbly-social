@@ -13,6 +13,7 @@ export type ComposeModalMode = "compose" | "live" | "space";
 type Props = {
   visible: boolean;
   onClose: () => void;
+  onPosted?: () => void;
   initialMode?: ComposeModalMode;
   liveAvailable?: boolean;
 };
@@ -20,6 +21,7 @@ type Props = {
 export function ComposeModal({
   visible,
   onClose,
+  onPosted,
   initialMode = "compose",
   liveAvailable: liveAvailableProp,
 }: Props) {
@@ -87,7 +89,7 @@ export function ComposeModal({
   );
 
   const primaryLabel = isComposeMode
-    ? "Gönder"
+    ? "Gönderi"
     : mode === "live"
       ? "Yayına başla"
       : "Odayı aç";
@@ -126,7 +128,10 @@ export function ComposeModal({
             ref={composeRef}
             variant="fullscreen"
             active={visible && isComposeMode}
-            onPosted={onClose}
+            onPosted={() => {
+              onPosted?.();
+              onClose();
+            }}
             liveAvailable={liveAvailable}
             onOpenLive={() => setMode("live")}
             onOpenSpace={() => setMode("space")}

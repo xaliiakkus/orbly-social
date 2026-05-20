@@ -50,13 +50,12 @@ export default function OnboardingScreen() {
   const required = requiredOrbitSelections(orbits.length);
   const canFinish = canCompleteOnboarding(selected.length, orbits.length);
 
-  const finish = async () => {
-    if (!canFinish) return;
+  const completeOnboarding = async (orbitIds?: string[]) => {
     setSubmitError("");
     setLoading(true);
     try {
       const res = await api.auth.onboarding({
-        orbitIds: selected.length > 0 ? selected : undefined,
+        orbitIds: orbitIds && orbitIds.length > 0 ? orbitIds : undefined,
         onboarded: true,
       });
       setUser(res.user);
@@ -68,9 +67,21 @@ export default function OnboardingScreen() {
     }
   };
 
+  const skip = () => void completeOnboarding();
+
+  const finish = () => {
+    if (!canFinish && orbits.length > 0) return;
+    void completeOnboarding(selected);
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>İlgi alanlarını seç</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>İlgi alanlarını seç</Text>
+        <Pressable onPress={skip} disabled={loading}>
+          <Text style={styles.skip}>Atla</Text>
+        </Pressable>
+      </View>
       <Text style={styles.hint}>{onboardingHint(orbits.length)}</Text>
 
       {fetching && <ActivityIndicator color={OrblyColors.accent} style={styles.loader} />}
@@ -115,9 +126,9 @@ export default function OnboardingScreen() {
       {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
 
       <Pressable
-        style={[styles.btn, (!canFinish || loading || fetching) && styles.btnOff]}
-        onPress={() => void finish()}
-        disabled={!canFinish || loading || fetching}
+        style={[styles.btn, (!canFinish && orbits.length > 0) || loading || fetching ? styles.btnOff : null]}
+        onPress={finish}
+        disabled={(!canFinish && orbits.length > 0) || loading || fetching}
       >
         {loading ? (
           <ActivityIndicator color="#000" />
@@ -127,13 +138,27 @@ export default function OnboardingScreen() {
           </Text>
         )}
       </Pressable>
+
+      <Pressable style={[styles.btnOutline, loading && styles.btnOff]} onPress={skip} disabled={loading}>
+        <Text style={styles.btnOutlineText}>
+          {loading ? "Kaydediliyor…" : "Atla — şimdilik geç"}
+        </Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrblyColors.bgPrimary, padding: 16 },
-  title: { color: OrblyColors.textPrimary, fontSize: 22, fontWeight: "700", marginBottom: 8 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 12,
+  },
+  title: { color: OrblyColors.textPrimary, fontSize: 22, fontWeight: "700", flex: 1 },
+  skip: { color: OrblyColors.textSecondary, fontSize: 15, fontWeight: "600", paddingTop: 4 },
   hint: { color: OrblyColors.textSecondary, fontSize: 15, marginBottom: 16 },
   loader: { marginVertical: 24 },
   center: { alignItems: "center", paddingVertical: 24, gap: 12 },
@@ -161,4 +186,13 @@ const styles = StyleSheet.create({
   },
   btnOff: { opacity: 0.4 },
   btnText: { color: "#000", fontWeight: "700" },
+  btnOutline: {
+    borderRadius: 999,
+    padding: 14,
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: OrblyColors.border,
+  },
+  btnOutlineText: { color: OrblyColors.textPrimary, fontWeight: "700" },
 });

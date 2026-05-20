@@ -229,8 +229,13 @@ export function createApiClient(options: ApiClientOptions) {
       },
     },
     media: {
-      presign: async (filename: string, contentType: string, folder = "media") => {
-        const body = { filename, contentType, folder };
+      presign: async (
+        filename: string,
+        contentType: string,
+        folder = "media",
+        storage: "auto" | "cloudinary" | "idrive" = "auto",
+      ) => {
+        const body = { filename, contentType, folder, storage };
         try {
           return await callRpc<PresignResponse>("media.presign", body);
         } catch (e) {
@@ -248,7 +253,7 @@ export function createApiClient(options: ApiClientOptions) {
     },
     users: {
       get: (username: string) =>
-        request<{ user: UserPublic; isFollowing: boolean; isSelf: boolean }>(
+        request<import("@orbly/types").UserProfileResponse>(
           `/v1/users/${encodeURIComponent(username)}`,
         ),
       posts: (username: string, cursor?: string) =>
@@ -259,8 +264,28 @@ export function createApiClient(options: ApiClientOptions) {
         request<{ data: LiveBroadcastStats[] }>(
           `/v1/users/${encodeURIComponent(username)}/broadcasts`,
         ),
-      follow: (userId: string) => callRpc<{ following: boolean }>("users.follow", { userId }),
-      unfollow: (userId: string) => callRpc<{ following: boolean }>("users.unfollow", { userId }),
+      follow: async (userId: string) => {
+        try {
+          return await callRpc<{ following: boolean }>("users.follow", { userId });
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<{ following: boolean }>(
+            `/v1/users/me/following/${encodeURIComponent(userId)}`,
+            { method: "POST" },
+          );
+        }
+      },
+      unfollow: async (userId: string) => {
+        try {
+          return await callRpc<{ following: boolean }>("users.unfollow", { userId });
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<{ following: boolean }>(
+            `/v1/users/me/following/${encodeURIComponent(userId)}`,
+            { method: "DELETE" },
+          );
+        }
+      },
       updateMe: async (body: Record<string, unknown>) => {
         try {
           return await callRpc<{ user: UserPublic }>("users.updateMe", body);
@@ -311,9 +336,22 @@ export function createApiClient(options: ApiClientOptions) {
       like: (id: string) => callRpc<{ liked: boolean }>("posts.like", { postId: id }),
       unlike: (id: string) => callRpc<{ liked: boolean }>("posts.unlike", { postId: id }),
       repost: (id: string, content?: string) =>
-        callRpc<{ post: PostPublic }>("posts.repost", { postId: id, content }),
+        callRpc<{ post: PostPublic; reposted: boolean }>("posts.repost", {
+          postId: id,
+          content,
+        }),
+      unrepost: (id: string) =>
+        callRpc<{ reposted: boolean; repostCount: number }>("posts.unrepost", {
+          postId: id,
+        }),
       replies: (id: string) =>
         request<PaginatedResponse<PostPublic>>(`/v1/posts/${id}/replies`),
+      reposters: (id: string, cursor?: string) =>
+        request<PaginatedResponse<UserPublic>>(
+          `/v1/posts/${encodeURIComponent(id)}/reposts${
+            cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
+          }`,
+        ),
       view: (id: string) =>
         callRpc<{ success: boolean }>("posts.view", { postId: id }),
       votePoll: (id: string, optionId: string) =>
@@ -328,6 +366,13 @@ export function createApiClient(options: ApiClientOptions) {
         request<PaginatedResponse<PostPublic>>(
           `/v1/feed/for-you${cursor ? `?cursor=${cursor}` : ""}`,
         ),
+      explore: (tab: "for-you" | "trending", cursor?: string) => {
+        const params = new URLSearchParams({ tab });
+        if (cursor) params.set("cursor", cursor);
+        return request<PaginatedResponse<PostPublic>>(
+          `/v1/feed/explore?${params.toString()}`,
+        );
+      },
       trending: () =>
         request<{ data: { tag: string; count: number }[] }>("/v1/feed/trending", {
           auth: false,

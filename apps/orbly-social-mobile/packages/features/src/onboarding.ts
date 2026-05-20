@@ -16,13 +16,13 @@ export function canCompleteOnboarding(
 export function onboardingHint(availableCount: number): string {
   const required = requiredOrbitSelections(availableCount);
   if (availableCount === 0) {
-    return "Şu an listelenecek orbit yok. Devam edebilirsin; ilgi alanlarını sonra Orbit'ler sayfasından seçebilirsin.";
+    return "İlgi alanlarını şimdi seçebilir veya atlayıp ana sayfaya geçebilirsin.";
   }
   if (required === 1) {
-    return "En az 1 orbit seç — feed'in buna göre kişiselleşir.";
+    return "En az 1 orbit seçebilir veya atlayabilirsin.";
   }
   if (required === 2) {
-    return "En az 2 orbit seç — feed'in buna göre kişiselleşir.";
+    return "En az 2 orbit seçebilir veya atlayabilirsin.";
   }
-  return "En az 3 orbit seç — feed'in buna göre kişiselleşir.";
+  return "En az 3 orbit seçebilir veya atlayabilirsin.";
 }

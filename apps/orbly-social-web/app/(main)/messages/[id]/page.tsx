@@ -1,25 +1,47 @@
 "use client";
 
-import { convoRoom, useConversationMessages, useSendMessage, useSocketRooms } from "@orbly/features";
+import {
+  convoRoom,
+  isMessageMine,
+  useConversationMessages,
+  useConversations,
+  useSendMessage,
+  useSocketRooms,
+} from "@orbly/features";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ChatMessage } from "@/components/messages/chat-message";
 import { PageHeader } from "@/components/layout/page-header";
-import { MediaImage } from "@/components/ui/media-image";
+import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/auth-store";
-import { cn } from "@/lib/cn";
-import { formatRelativeTime } from "@/lib/format";
 import { getSocket } from "@/lib/socket";
 import { uploadFile } from "@/lib/upload";
+import type { UserPublic } from "@orbly/types";
 
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
-  const me = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const { data: session } = useSession();
+  const storeUser = useAuthStore((s) => s.user);
+  const me: UserPublic | null | undefined =
+    storeUser ?? (session?.orblyUser as UserPublic | undefined) ?? null;
+  const accessToken =
+    useAuthStore((s) => s.accessToken) ?? session?.accessToken ?? null;
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { data: convos } = useConversations();
   const { data } = useConversationMessages(id);
   const send = useSendMessage(id);
+
+  const participant = useMemo(() => {
+    const fromList = convos?.data.find((c) => c.id === id)?.participant;
+    if (fromList) return fromList;
+    if (!me || !data?.data.length) return null;
+    const otherMsg = data.data.find((m) => !isMessageMine(m.senderId, me.id));
+    return otherMsg?.sender ?? null;
+  }, [convos?.data, id, data?.data, me]);
 
   useSocketRooms(() => getSocket(accessToken), id ? [convoRoom(id)] : []);
 
@@ -37,49 +59,38 @@ export default function ChatPage() {
 
   return (
     <>
-      <PageHeader title="Sohbet" />
-      <div className="flex flex-col h-[calc(100vh-120px)]">
+      <PageHeader
+        title={participant?.displayName ?? "Sohbet"}
+        subtitle={participant ? `@${participant.username}` : undefined}
+        action={
+          participant ? (
+            <Link href={`/profile/${participant.username}`} className="shrink-0">
+              <Avatar
+                src={participant.avatarUrl}
+                name={participant.displayName}
+                size="sm"
+                className="h-10 w-10"
+              />
+            </Link>
+          ) : null
+        }
+      />
+      <div className="flex flex-col h-[calc(100dvh-120px)] min-h-[400px]">
         <div className="flex-1 overflow-y-auto">
-          {data?.data.map((m) => {
-            const mine = m.senderId === me?.id;
-            return (
-              <div
-                key={m.id}
-                className={cn("px-4 py-2 flex", mine ? "justify-end" : "justify-start")}
-              >
-                <div
-                  className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-2 text-[15px]",
-                    mine ? "bg-accent text-white" : "bg-bg-secondary",
-                  )}
-                >
-                  <p>{m.content}</p>
-                  {m.mediaUrls?.map((url) => (
-                    <MediaImage
-                      key={url}
-                      src={url}
-                      alt=""
-                      className="mt-2 rounded-xl max-h-48 w-auto"
-                    />
-                  ))}
-                  <time className="text-[11px] opacity-70 block mt-1">
-                    {formatRelativeTime(m.createdAt)}
-                  </time>
-                </div>
-              </div>
-            );
-          })}
+          {data?.data.map((m) => (
+            <ChatMessage key={m.id} message={m} me={me} other={participant} />
+          ))}
           <div ref={bottomRef} />
         </div>
         <form
-          className="border-t border-border p-3 flex gap-2 items-end"
+          className="border-t border-border p-3 flex gap-2 items-end shrink-0"
           onSubmit={(e) => {
             e.preventDefault();
             if (!text.trim()) return;
             send.mutate({ content: text.trim() }, { onSuccess: () => setText("") });
           }}
         >
-          <label className="p-2 cursor-pointer text-accent">
+          <label className="p-2 cursor-pointer text-accent shrink-0">
             📎
             <input
               type="file"
@@ -96,12 +107,12 @@ export default function ChatPage() {
             onChange={(e) => setText(e.target.value)}
             rows={1}
             placeholder="Mesaj yaz"
-            className="flex-1 bg-bg-secondary border border-border rounded-2xl px-4 py-2 text-[15px] outline-none resize-none"
+            className="flex-1 bg-bg-secondary border border-border rounded-2xl px-4 py-2.5 text-[15px] outline-none resize-none min-h-[44px]"
           />
           <button
             type="submit"
             disabled={!text.trim() || send.isPending}
-            className="bg-accent text-white font-bold px-4 py-2 rounded-full disabled:opacity-50"
+            className="bg-accent text-white font-bold px-5 py-2.5 rounded-full disabled:opacity-50 shrink-0"
           >
             Gönder
           </button>

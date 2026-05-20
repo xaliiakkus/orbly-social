@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AccountSwitcher } from "@/components/auth/account-switcher";
+import { NotificationNavBadge } from "@/components/notifications/notification-nav-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Logo, OrblyWordmark } from "@/components/ui/logo";
@@ -62,12 +63,15 @@ export function LeftSidebar() {
                     active && "font-bold bg-bg-hover",
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      "h-[26px] w-[26px] shrink-0",
-                      active && "stroke-[2.5]",
-                    )}
-                  />
+                  <span className="relative shrink-0">
+                    <Icon
+                      className={cn(
+                        "h-[26px] w-[26px]",
+                        active && "stroke-[2.5]",
+                      )}
+                    />
+                    {href === "/notifications" ? <NotificationNavBadge /> : null}
+                  </span>
                   <span className="hidden xl:inline text-[20px] leading-6">{label}</span>
                 </Link>
               );

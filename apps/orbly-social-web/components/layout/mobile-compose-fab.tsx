@@ -1,6 +1,6 @@
 "use client";
 
-import { PenLine } from "lucide-react";
+import { Plus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -13,7 +13,9 @@ export function MobileComposeFab() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  const isHomeFeed = pathname === "/home" || pathname === "/";
   const hidden =
+    isHomeFeed ||
     HIDDEN_PREFIXES.some((p) => pathname?.startsWith(p)) ||
     /^\/live\/[^/]+/.test(pathname ?? "");
 
@@ -32,7 +34,7 @@ export function MobileComposeFab() {
           "right-4 bottom-[calc(53px+env(safe-area-inset-bottom)+12px)]",
         )}
       >
-        <PenLine className="h-6 w-6" strokeWidth={2.25} />
+        <Plus className="h-7 w-7" strokeWidth={2.25} />
       </button>
       <MobileComposeSheet open={open} onClose={() => setOpen(false)} />
     </>

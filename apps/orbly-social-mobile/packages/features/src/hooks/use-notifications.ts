@@ -2,12 +2,23 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import type { NotificationItem } from "@orbly/types";
 
 import { useApi, useOrblyQueryClient } from "../context";
+import {
+  bumpNotificationUnreadCount,
+  setNotificationUnreadCount,
+} from "../realtime/notification-cache";
 
 export function useNotificationsFeed(options?: { enabled?: boolean }) {
   const api = useApi();
+  const qc = useOrblyQueryClient();
   return useInfiniteQuery({
     queryKey: ["notifications"],
-    queryFn: ({ pageParam }) => api.notifications.list(pageParam as string | undefined),
+    queryFn: async ({ pageParam }) => {
+      const res = await api.notifications.list(pageParam as string | undefined);
+      if (!pageParam && typeof res.unreadCount === "number") {
+        setNotificationUnreadCount(qc, res.unreadCount);
+      }
+      return res;
+    },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined),
     enabled: options?.enabled ?? true,
@@ -27,7 +38,8 @@ export function useNotificationUnreadCount(options?: { enabled?: boolean }) {
       return res.unreadCount;
     },
     enabled: options?.enabled ?? true,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -45,6 +57,9 @@ export function useMarkNotificationRead() {
     onMutate: async (notificationId) => {
       await qc.cancelQueries({ queryKey: ["notifications"] });
       const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(["notifications"]);
+      const wasUnread = prev?.pages.some((page) =>
+        page.data.some((n) => n.id === notificationId && !n.isRead),
+      );
       if (prev) {
         qc.setQueryData(["notifications"], {
           ...prev,
@@ -60,6 +75,7 @@ export function useMarkNotificationRead() {
           })),
         });
       }
+      if (wasUnread) bumpNotificationUnreadCount(qc, -1);
       return { prev };
     },
     onError: (_e, _id, ctx) => {
@@ -76,7 +92,26 @@ export function useReadAllNotifications() {
   const qc = useOrblyQueryClient();
   return useMutation({
     mutationFn: () => api.notifications.readAll(),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["notifications"] }),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["notifications"] });
+      setNotificationUnreadCount(qc, 0);
+      const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(["notifications"]);
+      if (prev) {
+        qc.setQueryData(["notifications"], {
+          ...prev,
+          pages: prev.pages.map((page) => ({
+            ...page,
+            data: page.data.map((n) => ({ ...n, isRead: true })),
+            unreadCount: 0,
+          })),
+        });
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["notifications"], ctx.prev);
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 }
 

@@ -9,7 +9,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -30,6 +30,7 @@ export default function OnboardingPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["orbits"],
     queryFn: () => api.orbits.list(),
+    retry: 1,
   });
 
   const orbits = data?.data ?? [];
@@ -42,40 +43,61 @@ export default function OnboardingPage() {
     }
   }, [hydrated, user?.onboarded, router]);
 
+  const completeOnboarding = useCallback(
+    async (orbitIds?: string[]) => {
+      setError("");
+      setLoading(true);
+      try {
+        const res = await api.auth.onboarding({
+          orbitIds: orbitIds && orbitIds.length > 0 ? orbitIds : undefined,
+          onboarded: true,
+        });
+        setUser(res.user);
+        const tokens = useAuthStore.getState();
+        await updateSession({
+          orblyUser: res.user,
+          accessToken: tokens.accessToken ?? undefined,
+          refreshToken: tokens.refreshToken ?? undefined,
+          accessExpiresAt: Date.now() + 900 * 1000,
+        });
+        router.replace("/home");
+      } catch (err) {
+        setError(formatUserError(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router, setUser, updateSession],
+  );
+
+  const skip = () => void completeOnboarding();
+
+  const finish = () => {
+    if (!canFinish && orbits.length > 0) return;
+    void completeOnboarding(selected);
+  };
+
   const toggle = (id: string) => {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
-  const finish = async () => {
-    if (!canFinish) return;
-    setError("");
-    setLoading(true);
-    try {
-      const res = await api.auth.onboarding({
-        orbitIds: selected.length > 0 ? selected : undefined,
-        onboarded: true,
-      });
-      setUser(res.user);
-      const tokens = useAuthStore.getState();
-      await updateSession({
-        orblyUser: res.user,
-        accessToken: tokens.accessToken ?? undefined,
-        refreshToken: tokens.refreshToken ?? undefined,
-        accessExpiresAt: Date.now() + 900 * 1000,
-      });
-      router.push("/home");
-    } catch (err) {
-      setError(formatUserError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-lg">
-      <h1 className="text-2xl font-bold mb-2">İlgi alanlarını seç</h1>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="text-2xl font-bold">İlgi alanlarını seç</h1>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-text-secondary hover:text-text-primary"
+          disabled={loading}
+          onClick={skip}
+        >
+          Atla
+        </Button>
+      </div>
       <p className="text-text-secondary mb-6 text-[15px]">{onboardingHint(orbits.length)}</p>
 
       {isLoading && (
@@ -83,8 +105,10 @@ export default function OnboardingPage() {
       )}
 
       {isError && (
-        <div className="text-center py-6 space-y-3">
-          <p className="text-like text-sm">Orbit listesi yüklenemedi.</p>
+        <div className="text-center py-6 space-y-3 mb-6 rounded-2xl border border-border p-4">
+          <p className="text-like text-sm">
+            Orbit listesi yüklenemedi. API adresinin HTTPS olduğundan emin olun.
+          </p>
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
             Tekrar dene
           </Button>
@@ -119,23 +143,34 @@ export default function OnboardingPage() {
 
       {!isLoading && !isError && orbits.length === 0 && (
         <p className="text-text-secondary text-center py-8 mb-6">
-          Henüz orbit bulunmuyor. Devam edip daha sonra seçebilirsin.
+          Henüz orbit bulunmuyor. Atla ile devam edebilirsin.
         </p>
       )}
 
       {error && <p className="text-like text-sm mb-4">{error}</p>}
 
-      <Button
-        className="w-full"
-        disabled={!canFinish || loading || isLoading}
-        onClick={finish}
-      >
-        {loading
-          ? "Kaydediliyor…"
-          : required === 0
-            ? "Devam et"
-            : `Devam et (${selected.length}/${required})`}
-      </Button>
+      <div className="flex flex-col gap-3">
+        <Button
+          className="w-full"
+          disabled={(!canFinish && orbits.length > 0) || loading || isLoading}
+          onClick={finish}
+        >
+          {loading
+            ? "Kaydediliyor…"
+            : required === 0
+              ? "Devam et"
+              : `Devam et (${selected.length}/${required})`}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={loading}
+          onClick={skip}
+        >
+          {loading ? "Kaydediliyor…" : "Atla — şimdilik geç"}
+        </Button>
+      </div>
     </div>
   );
 }

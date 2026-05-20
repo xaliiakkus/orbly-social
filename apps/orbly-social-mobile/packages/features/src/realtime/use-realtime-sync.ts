@@ -3,6 +3,10 @@ import { useEffect } from "react";
 import { SOCKET_EVENTS } from "../constants";
 import { useOrblyQueryClient } from "../context";
 import { appendMessageToCache, applyPostStatsToCache } from "./cache";
+import {
+  applyNotificationToCache,
+  type NotificationSocketEvent,
+} from "./notification-cache";
 import type {
   MessageEvent,
   PostStatsEvent,
@@ -32,7 +36,16 @@ export function useRealtimeSync(
       if (event?.conversationId && event.message) appendMessageToCache(qc, event);
     };
 
-    const onNotification = () => {
+    const onNotification = (payload: unknown) => {
+      const event = payload as NotificationSocketEvent;
+      if (event?.id) {
+        applyNotificationToCache(qc, event);
+      } else {
+        void qc.invalidateQueries({ queryKey: ["notifications"] });
+      }
+    };
+
+    const onConnect = () => {
       void qc.invalidateQueries({ queryKey: ["notifications"] });
     };
 
@@ -57,6 +70,7 @@ export function useRealtimeSync(
 
     socket.on(SOCKET_EVENTS.postStats, onPostStats);
     socket.on(SOCKET_EVENTS.message, onMessage);
+    socket.on("connect", onConnect);
     socket.on(SOCKET_EVENTS.notification, onNotification);
     socket.on(SOCKET_EVENTS.feedNew, onFeedNew);
     socket.on(SOCKET_EVENTS.postReply, onPostReply);
@@ -67,6 +81,7 @@ export function useRealtimeSync(
     return () => {
       socket.off(SOCKET_EVENTS.postStats, onPostStats);
       socket.off(SOCKET_EVENTS.message, onMessage);
+      socket.off("connect", onConnect);
       socket.off(SOCKET_EVENTS.notification, onNotification);
       socket.off(SOCKET_EVENTS.feedNew, onFeedNew);
       socket.off(SOCKET_EVENTS.postReply, onPostReply);

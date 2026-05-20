@@ -6,7 +6,9 @@ import {
   POST_MAX_LENGTH,
   useComposePost,
   useLiveList,
+  useQuoteRepost,
 } from "@orbly/features";
+import { formatUserError } from "@orbly/api-client";
 import { BarChart2, ImageIcon, Smile, Users, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -45,8 +47,11 @@ type Props = {
   submitInHeader?: boolean;
   replyToId?: string;
   replyToUsername?: string;
+  quoteRepostId?: string;
+  submitLabel?: string;
   onClearReply?: () => void;
   onPosted?: () => void;
+  onQuoteError?: (message: string) => void;
   onComposeState?: (state: ComposeBoxState) => void;
   focusSession?: number | string;
   /** Yanıt modalı: üstte gösterilen gönderi özeti (X thread) */
@@ -61,8 +66,11 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
     submitInHeader = false,
     replyToId,
     replyToUsername,
+    quoteRepostId,
+    submitLabel: submitLabelProp,
     onClearReply,
     onPosted,
+    onQuoteError,
     onComposeState,
     focusSession = 0,
     replyContext,
@@ -87,18 +95,46 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
   const { data: liveData } = useLiveList();
   const liveAvailable = liveData?.configured === true;
   const compose = useComposePost();
+  const quoteRepost = useQuoteRepost();
   const qc = useQueryClient();
+  const isQuote = !!quoteRepostId;
 
   const remaining = POST_MAX_LENGTH - content.length;
-  const submitLabel = isReplyModal ? "Yanıtla" : "Gönder";
+  const submitLabel =
+    submitLabelProp ??
+    (isQuote ? "Alıntıla" : isReplyModal ? "Yanıtla" : "Gönderi yayınla");
   const totalMedia = mediaFiles.length + gifUrls.length;
   const canPost =
-    (content.trim().length > 0 || totalMedia > 0) &&
+    (isQuote
+      ? content.trim().length > 0
+      : content.trim().length > 0 || totalMedia > 0) &&
     remaining >= 0 &&
     (!pollOptions || pollOptions.filter((o) => o.trim()).length >= MIN_POLL_OPTIONS);
 
   const submit = useCallback(() => {
-    if (!canPost || compose.isPending) return;
+    if (!canPost || compose.isPending || quoteRepost.isPending) return;
+
+    const reset = () => {
+      setContent("");
+      setMediaFiles([]);
+      setMediaPreview([]);
+      setGifUrls([]);
+      setPollOptions(null);
+      void qc.invalidateQueries({ queryKey: ["feed"] });
+      onPosted?.();
+    };
+
+    if (isQuote && quoteRepostId) {
+      quoteRepost.mutate(
+        { postId: quoteRepostId, content: content.trim() || " " },
+        {
+          onSuccess: reset,
+          onError: (e) => onQuoteError?.(formatUserError(e)),
+        },
+      );
+      return;
+    }
+
     compose.mutate(
       {
         content: content.trim() || " ",
@@ -111,21 +147,14 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
         replyToId,
         pollOptions: pollOptions ?? undefined,
       },
-      {
-        onSuccess: () => {
-          setContent("");
-          setMediaFiles([]);
-          setMediaPreview([]);
-          setGifUrls([]);
-          setPollOptions(null);
-          void qc.invalidateQueries({ queryKey: ["feed"] });
-          onPosted?.();
-        },
-      },
+      { onSuccess: reset },
     );
   }, [
     canPost,
     compose,
+    quoteRepost,
+    isQuote,
+    quoteRepostId,
     content,
     mediaFiles,
     gifUrls,
@@ -133,6 +162,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
     replyToId,
     qc,
     onPosted,
+    onQuoteError,
   ]);
 
   useImperativeHandle(ref, () => ({ submit }), [submit]);
@@ -143,8 +173,11 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
   }, [pinToolbar, isDrawerVariant, focusSession]);
 
   useEffect(() => {
-    onComposeState?.({ canPost, isPending: compose.isPending });
-  }, [canPost, compose.isPending, onComposeState]);
+    onComposeState?.({
+      canPost,
+      isPending: compose.isPending || quoteRepost.isPending,
+    });
+  }, [canPost, compose.isPending, quoteRepost.isPending, onComposeState]);
 
   if (!user) return null;
 
@@ -252,8 +285,12 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
           }
           rows={pinToolbar ? 1 : isDrawerVariant ? 4 : 2}
           className={cn(
-            "w-full bg-transparent text-[20px] leading-7 placeholder:text-text-secondary outline-none resize-none",
-            pinToolbar ? "min-h-[28px]" : isDrawerVariant ? "min-h-[120px]" : "min-h-[52px]",
+            "w-full bg-transparent placeholder:text-text-secondary outline-none resize-none",
+            pinToolbar
+              ? "min-h-[28px] text-[20px] leading-7"
+              : isDrawerVariant
+                ? "min-h-[120px] text-[20px] leading-7"
+                : "min-h-[52px] text-[20px] leading-7 max-md:min-h-[44px] max-md:text-[17px] max-md:leading-6",
             !pinToolbar && "flex-1",
           )}
         />
@@ -324,7 +361,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
     <div
       className={cn(
         !isDrawerVariant &&
-          "flex gap-3 px-4 py-3 border-b border-border hover:bg-bg-hover/40 transition-colors",
+          "flex flex-col gap-0 px-4 py-3 border-b border-border hover:bg-bg-hover/40 transition-colors max-md:py-2.5",
         isDrawerVariant && "flex flex-1 min-h-0 flex-col",
         className,
       )}
@@ -358,7 +395,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
                 disabled={!canPost || compose.isPending}
                 onClick={submit}
                 className={cn(
-                  "min-w-[72px] font-bold ml-3 shrink-0",
+                  "min-w-[72px] font-bold ml-3 shrink-0 max-md:min-w-[100px] max-md:rounded-full max-md:px-4",
                   isReplyModal && "rounded-full px-5",
                 )}
               >

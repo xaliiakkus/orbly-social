@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { resolveMediaUrl } from "@/lib/media-url";
+import { resolveMediaUrl, shouldBypassNextImageOptimizer } from "@/lib/media-url";
 import { cn } from "@/lib/cn";
 
 interface AvatarProps {
@@ -24,10 +24,6 @@ const imageSizes: Record<NonNullable<AvatarProps["size"]>, string> = {
   xl: "134px",
 };
 
-function needsUnoptimized(url: string) {
-  return url.startsWith("blob:") || url.startsWith("data:");
-}
-
 export function Avatar({ src, name, size = "md", className }: AvatarProps) {
   const initial = name.charAt(0).toUpperCase();
   const resolved = resolveMediaUrl(src);
@@ -40,14 +36,22 @@ export function Avatar({ src, name, size = "md", className }: AvatarProps) {
           className,
         )}
       >
-        <Image
-          src={resolved}
-          alt={name}
-          fill
-          sizes={imageSizes[size]}
-          unoptimized={needsUnoptimized(resolved)}
-          className="object-cover"
-        />
+        {shouldBypassNextImageOptimizer(resolved) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolved}
+            alt={name}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <Image
+            src={resolved}
+            alt={name}
+            fill
+            sizes={imageSizes[size]}
+            className="object-cover"
+          />
+        )}
       </span>
     );
   }

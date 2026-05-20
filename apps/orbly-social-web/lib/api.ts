@@ -1,16 +1,22 @@
 import { createApiClient, socketRpc } from "@orbly/api-client";
-import { signOut } from "next-auth/react";
 
+import { getApiBaseUrl } from "./api-url";
 import { useAuthStore } from "./auth-store";
 import { notifySessionTokensRefreshed } from "./session-token-sync";
-import { disconnectSocket, getSocket } from "./socket";
+import {
+  applyAuthTokens,
+  ensureFreshAccessToken,
+  refreshTokensSilently,
+} from "./token-manager";
+import { getSocket, reconnectSocket } from "./socket";
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const baseUrl = getApiBaseUrl();
 
 let suppressUnauthorizedLogout = false;
 
-/** Oturum yenileme sırasında 401'de store'u silme. */
-export async function withoutUnauthorizedLogout<T>(fn: () => Promise<T>): Promise<T> {
+export async function withoutUnauthorizedLogout<T>(
+  fn: () => Promise<T>,
+): Promise<T> {
   suppressUnauthorizedLogout = true;
   try {
     return await fn();
@@ -24,15 +30,18 @@ export const api = createApiClient({
   getAccessToken: () => useAuthStore.getState().accessToken,
   getRefreshToken: () => useAuthStore.getState().refreshToken,
   onTokensRefreshed: (payload) => {
-    useAuthStore.getState().setAuth(payload);
+    applyAuthTokens(payload);
     notifySessionTokensRefreshed(payload);
-    disconnectSocket();
-    getSocket(payload.tokens.accessToken);
+    reconnectSocket(payload.tokens.accessToken);
   },
   onUnauthorized: () => {
     if (suppressUnauthorizedLogout) return;
-    useAuthStore.getState().logout();
-    void signOut({ callbackUrl: "/login" });
+    void (async () => {
+      const refreshed = await refreshTokensSilently();
+      if (!refreshed) {
+        await ensureFreshAccessToken();
+      }
+    })();
   },
   rpc: (action, data) => {
     const token = useAuthStore.getState().accessToken;

@@ -2,10 +2,15 @@
 
 import {
   canManagePost,
+  getRepostDisplayCount,
+  getRepostTargetId,
+  getPostShareUrl,
+  getRepostTargetPost,
   postRoom,
   useDeletePost,
   usePostBookmark,
   usePostLike,
+  usePostRepost,
   usePostView,
   useSocketRooms,
   useUpdatePost,
@@ -30,9 +35,14 @@ import type { KeyboardEvent, MouseEvent as ReactMouseEvent, Ref } from "react";
 
 import { EditPostModal } from "@/components/post/edit-post-modal";
 import { useReplyComposeOptional } from "@/components/post/reply-compose-context";
+import { useRepostComposeOptional } from "@/components/post/repost-compose-context";
+import { RepostEmbed } from "@/components/post/repost-embed";
+import { RepostMenu } from "@/components/post/repost-menu";
+import { RepostersModal } from "@/components/post/reposters-modal";
 import { PollBlock } from "@/components/post/poll-block";
 import { Avatar } from "@/components/ui/avatar";
 import { MediaImage } from "@/components/ui/media-image";
+import { isVideoMediaUrl, resolveMediaUrl } from "@/lib/media-url";
 import { useAuthStore } from "@/lib/auth-store";
 import { cn } from "@/lib/cn";
 import { getSocket } from "@/lib/socket";
@@ -59,12 +69,18 @@ export function PostCard({
 }) {
   const router = useRouter();
   const replyCompose = useReplyComposeOptional();
+  const repostCompose = useRepostComposeOptional();
   const accessToken = useAuthStore((s) => s.accessToken);
   const viewer = useAuthStore((s) => s.user);
+  const repostTarget = getRepostTargetPost(post);
+  const repostTargetId = getRepostTargetId(post);
+  const isRepostCard = !!post.repostOf;
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editError, setEditError] = useState("");
+  const [repostersOpen, setRepostersOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const manageable = canManagePost(post, viewer?.id);
   const deletePost = useDeletePost();
   const updatePost = useUpdatePost();
@@ -81,7 +97,33 @@ export function PostCard({
     post.id,
     post.bookmarkedByMe ?? false,
   );
+  const {
+    reposted,
+    count: repostCount,
+    toggle: toggleRepost,
+    isPending: repostPending,
+  } = usePostRepost(
+    repostTargetId,
+    post.repostedByMe ?? false,
+    getRepostDisplayCount(post),
+    post.myRepostId,
+  );
   const view = usePostView(post.id);
+  const ownPost = viewer?.id === repostTarget.author.id;
+
+  const copyPostLink = async () => {
+    const url = getPostShareUrl(
+      repostTargetId,
+      typeof window !== "undefined" ? window.location.origin : undefined,
+    );
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      window.prompt("Bağlantı", url);
+    }
+  };
 
   useEffect(() => {
     view.mutate();
@@ -148,6 +190,12 @@ export function PostCard({
       </Link>
 
       <div className="min-w-0 flex-1">
+        {isRepostCard ? (
+          <p className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-text-secondary">
+            <Repeat2 className="h-3.5 w-3.5 text-repost" />
+            {post.author.displayName} yeniden paylaştı
+          </p>
+        ) : null}
         {post.liveBroadcastId && (
           <Link
             href={`/live/${post.liveBroadcastId}/ozet`}
@@ -223,17 +271,23 @@ export function PostCard({
           </p>
         ) : null}
 
-        <p className="mt-1 text-[15px] leading-[1.45] whitespace-pre-wrap break-words text-text-primary">
-          {post.content}
-        </p>
+        {post.content.trim() ? (
+          <p className="mt-1 text-[15px] leading-[1.45] whitespace-pre-wrap break-words text-text-primary">
+            {post.content}
+          </p>
+        ) : null}
 
-        {post.poll && (
+        {post.repostOf ? (
+          <RepostEmbed post={post.repostOf} onRefresh={onRefresh} />
+        ) : null}
+
+        {!post.repostOf && post.poll && (
           <div className="mt-3" onClick={(e: ReactMouseEvent<HTMLDivElement>) => e.stopPropagation()}>
             <PollBlock postId={post.id} poll={post.poll} onVoted={onRefresh} />
           </div>
         )}
 
-        {post.mediaUrls.length > 0 && (
+        {!post.repostOf && post.mediaUrls.length > 0 && (
           <div
             className={cn(
               "mt-3 rounded-2xl overflow-hidden border border-border",
@@ -248,12 +302,13 @@ export function PostCard({
               )}
             >
               {post.mediaUrls.map((url, i) => {
-                const isVideo = /\.(mp4|webm|m3u8)(\?|$)/i.test(url);
-                if (isVideo) {
+                const mediaSrc = resolveMediaUrl(url);
+                if (!mediaSrc) return null;
+                if (isVideoMediaUrl(url) || isVideoMediaUrl(mediaSrc)) {
                   return (
                     <video
                       key={url}
-                      src={url}
+                      src={mediaSrc}
                       controls
                       playsInline
                       preload="metadata"
@@ -267,12 +322,19 @@ export function PostCard({
                 return (
                   <MediaImage
                     key={url}
-                    src={url}
+                    src={mediaSrc}
                     alt=""
+                    sizes={
+                      post.mediaUrls.length === 1
+                        ? "(max-width: 768px) 100vw, 508px"
+                        : "(max-width: 768px) 50vw, 254px"
+                    }
                     className={cn(
-                      "w-full object-cover bg-bg-secondary",
-                      post.mediaUrls.length === 1 ? "max-h-[min(512px,70vh)]" : "aspect-video max-h-64",
-                      post.mediaUrls.length === 3 && i === 0 && "row-span-2 h-full min-h-[200px]",
+                      "w-full h-auto bg-bg-secondary",
+                      post.mediaUrls.length === 1
+                        ? "max-h-[min(512px,70vh)]"
+                        : "aspect-video max-h-64 w-full",
+                      post.mediaUrls.length === 3 && i === 0 && "row-span-2 min-h-[200px]",
                     )}
                   />
                 );
@@ -302,7 +364,37 @@ export function PostCard({
               }
             }}
           />
-          <ActionBtn icon={Repeat2} count={post.stats.repostCount} label="Repost" hover="repost" />
+          <div className="flex items-center gap-0">
+            <RepostMenu
+              reposted={reposted}
+              disabled={repostPending || ownPost}
+              onRepost={() => void toggleRepost()}
+              onUnrepost={() => void toggleRepost()}
+              onQuote={() => repostCompose?.openQuote(post)}
+              onCopyLink={() => void copyPostLink()}
+            />
+            {repostCount > 0 ? (
+              <button
+                type="button"
+                onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRepostersOpen(true);
+                }}
+                className={cn(
+                  "text-[13px] -ml-1 p-1 rounded hover:underline",
+                  reposted ? "text-repost" : "text-text-secondary",
+                )}
+              >
+                {formatCount(repostCount)}
+              </button>
+            ) : null}
+            {linkCopied ? (
+              <span className="sr-only" aria-live="polite">
+                Bağlantı kopyalandı
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
@@ -328,6 +420,11 @@ export function PostCard({
           </p>
         )}
       </div>
+      <RepostersModal
+        postId={repostTargetId}
+        open={repostersOpen}
+        onClose={() => setRepostersOpen(false)}
+      />
       <EditPostModal
         post={post}
         open={editOpen}

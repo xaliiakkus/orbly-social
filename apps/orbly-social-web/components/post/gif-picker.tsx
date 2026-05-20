@@ -65,7 +65,7 @@ export function GifPicker({
           )}
           {isError && (
             <p className="text-center text-text-secondary py-8">
-              GIF araması kullanılamıyor (TENOR_API_KEY)
+              GIF araması kullanılamıyor
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">

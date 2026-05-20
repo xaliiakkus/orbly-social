@@ -9,7 +9,10 @@ from app.commands.registry import action
 from app.errors import AppError
 from app.models.conversation import Conversation, LastMessage
 from app.models.message import Message
+from app.models.user import User
+from app.services.serializers import user_out
 from app.schemas.conversations import CreateConversationIn, SendMessageIn
+from app.services.follow_checks import require_mutual_follow_for_dm
 from app.services.realtime import emit_message
 from app.services.realtime_broadcast import broadcast_conversation_message
 from app.utils import resolve_user_by_id_or_username
@@ -24,6 +27,7 @@ async def create_conversation(user_id: str | None, data: dict[str, Any]) -> dict
     target_id = str(target.id)
     if target_id == user_id:
         raise AppError("Invalid participant", 400)
+    await require_mutual_follow_for_dm(user_id, target_id)
     ids = sorted([user_id, target_id])
     oids = [PydanticObjectId(ids[0]), PydanticObjectId(ids[1])]
     convo = await Conversation.find_one({"participantIds": {"$all": oids, "$size": 2}})
@@ -55,6 +59,9 @@ async def send_message(user_id: str | None, data: dict[str, Any]) -> dict[str, A
     convo = await Conversation.get(convo_id)
     if not convo or PydanticObjectId(user_id) not in convo.participantIds:
         raise AppError("Not found" if not convo else "Forbidden", 404 if not convo else 403)
+    other = next((str(p) for p in convo.participantIds if str(p) != user_id), None)
+    if other:
+        await require_mutual_follow_for_dm(user_id, other)
     now = datetime.utcnow()
     msg = Message(
         conversationId=PydanticObjectId(convo_id),
@@ -64,7 +71,6 @@ async def send_message(user_id: str | None, data: dict[str, Any]) -> dict[str, A
         createdAt=now,
     )
     await msg.insert()
-    other = next((str(p) for p in convo.participantIds if str(p) != user_id), None)
     convo.lastMessage = LastMessage(content=body.content, senderId=PydanticObjectId(user_id), createdAt=now)
     if other:
         convo.unreadCounts[other] = convo.unreadCounts.get(other, 0) + 1
@@ -77,9 +83,12 @@ async def send_message(user_id: str | None, data: dict[str, Any]) -> dict[str, A
         "mediaUrls": msg.mediaUrls,
         "createdAt": now.isoformat() + "Z",
     }
+    sender_doc = await User.get(user_id)
+    sender_public = user_out(sender_doc).model_dump() if sender_doc else None
     message_item = {
         "id": str(msg.id),
         "senderId": user_id,
+        "sender": sender_public,
         "content": msg.content,
         "mediaUrls": msg.mediaUrls or [],
         "isRead": msg.isRead,

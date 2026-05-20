@@ -88,7 +88,10 @@ export default function HomePage() {
         </button>
       )}
 
-      <ComposeBox className="hidden md:flex border-b border-border" />
+      <ComposeBox
+        className="border-b border-border"
+        submitLabel="Gönderi yayınla"
+      />
 
       <div className="flex-1 pb-2">
         <FeedList mode={tab} onNewPosts={() => setFeedBanner(true)} />

@@ -17,11 +17,12 @@ def _map_results(items: list[dict[str, Any]]) -> list[dict[str, str]]:
             continue
         out.append(
             {
-                "id": str(item.get("id", "")),
+                "id": f"tenor:{item.get('id', '')}",
                 "url": gif.get("url", ""),
                 "previewUrl": preview.get("url", gif.get("url", "")),
                 "width": str(gif.get("dims", [0, 0])[0]),
                 "height": str(gif.get("dims", [0, 0])[1]),
+                "source": "tenor",
             }
         )
     return out

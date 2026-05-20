@@ -66,6 +66,7 @@ export interface PostPublic {
   liveBroadcastId?: string | null;
   replyToId?: string;
   repostOfId?: string;
+  repostOf?: PostPublic;
   hashtags: string[];
   poll?: PollPublic;
   stats: {
@@ -77,6 +78,8 @@ export interface PostPublic {
   };
   likedByMe?: boolean;
   bookmarkedByMe?: boolean;
+  repostedByMe?: boolean;
+  myRepostId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -126,6 +129,11 @@ export interface NotificationItem {
   postPreview?: NotificationPostPreview | null;
 }
 
+/** Bildirim listesi — sayfalı yanıt + okunmamış sayısı */
+export interface NotificationsListResponse extends PaginatedResponse<NotificationItem> {
+  unreadCount: number;
+}
+
 export interface TrendingTag {
   tag: string;
   count: number;
@@ -153,10 +161,19 @@ export interface ConversationItem {
 export interface MessageItem {
   id: string;
   senderId: string;
+  sender?: UserPublic | null;
   content: string;
   mediaUrls: string[];
   isRead: boolean;
   createdAt: string;
+}
+
+export interface UserProfileResponse {
+  user: UserPublic;
+  isFollowing: boolean;
+  isFollowedBy: boolean;
+  canMessage: boolean;
+  isSelf: boolean;
 }
 
 export interface PresignResponse {
@@ -177,4 +194,5 @@ export interface GifItem {
   previewUrl: string;
   width: string;
   height: string;
+  source?: "tenor" | "giphy";
 }

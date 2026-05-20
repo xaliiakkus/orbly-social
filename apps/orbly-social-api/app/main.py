@@ -26,6 +26,7 @@ from app.routers import (
     users,
 )
 from app.services.default_orbits import ensure_default_orbits
+from app.services import s3_storage
 from app.services.r2 import UPLOAD_DIR
 from app.services.realtime import mount_socketio
 from app.services.redis_client import close_redis, connect_redis
@@ -73,6 +74,11 @@ async def lifespan(_app: FastAPI):
     await connect_redis()
     await ensure_default_orbits()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    if s3_storage.is_configured():
+        try:
+            s3_storage.verify_bucket()
+        except Exception:
+            pass
     yield
     await close_redis()
     await close_db()

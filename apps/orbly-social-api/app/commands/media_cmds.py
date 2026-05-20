@@ -14,4 +14,5 @@ async def presign(_user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
         filename=body.filename,
         content_type=body.contentType,
         folder=body.folder,
+        storage=body.storage,
     )

@@ -8,9 +8,9 @@ interface AuthState {
   user: UserPublic | null;
   accessToken: string | null;
   refreshToken: string | null;
-  /** True after SessionSync has applied the session and refreshed user from the API. */
+  accessExpiresAt: number | null;
   hydrated: boolean;
-  setAuth: (payload: AuthResponse) => void;
+  setAuth: (payload: AuthResponse, accessExpiresAt?: number) => void;
   setUser: (user: UserPublic) => void;
   setHydrated: (hydrated: boolean) => void;
   logout: () => void;
@@ -23,18 +23,27 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      accessExpiresAt: null,
       hydrated: false,
-      setAuth: ({ user, tokens }) =>
+      setAuth: ({ user, tokens }, accessExpiresAt) =>
         set({
           user,
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
+          accessExpiresAt:
+            accessExpiresAt ?? Date.now() + tokens.expiresIn * 1000,
         }),
       setUser: (user) => set({ user }),
       setHydrated: (hydrated) => set({ hydrated }),
       logout: () =>
-        set({ user: null, accessToken: null, refreshToken: null, hydrated: false }),
-      isAuthenticated: () => !!get().accessToken,
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          accessExpiresAt: null,
+          hydrated: false,
+        }),
+      isAuthenticated: () => !!get().accessToken || !!get().refreshToken,
     }),
     {
       name: "orbly-auth",
@@ -42,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        accessExpiresAt: state.accessExpiresAt,
       }),
     },
   ),

@@ -2,7 +2,7 @@ import { formatUserError } from "@orbly/api-client";
 import { useQuery } from "@tanstack/react-query";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,29 +10,50 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/EmptyState";
+import { ExploreFeaturedCard } from "@/components/explore/ExploreFeaturedCard";
+import { ExploreHeader } from "@/components/explore/ExploreHeader";
+import { ExploreScrollTabs } from "@/components/explore/ExploreScrollTabs";
+import { ExplorePostsFeed } from "@/components/explore/ExplorePostsFeed";
+import { ExploreTrendRow, trendMetaLine } from "@/components/explore/ExploreTrendRow";
 import { TabScaffold } from "@/components/layout/TabScaffold";
+import { MenuDrawer } from "@/components/MenuDrawer";
 import { PostCard } from "@/components/PostCard";
 import { OrblyColors } from "@/constants/Colors";
 import { api } from "@/lib/api";
-import { formatCount } from "@/lib/format";
+
+const EXPLORE_TABS = [
+  { id: "for-you" as const, label: "Sana Özel" },
+  { id: "trending" as const, label: "Gündemdekiler" },
+  { id: "news" as const, label: "Haberler" },
+  { id: "sports" as const, label: "Spor" },
+  { id: "fun" as const, label: "Eğlence" },
+];
+
+type ExploreTab = (typeof EXPLORE_TABS)[number]["id"];
 
 export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
+  const [tab, setTab] = useState<ExploreTab>("for-you");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const runSearch = useCallback(() => {
     const term = q.trim();
     if (term.length < 2) return;
     setSubmitted(term);
   }, [q]);
+
+  const clearSearch = useCallback(() => {
+    setSubmitted("");
+    setQ("");
+  }, []);
 
   const search = useQuery({
     queryKey: ["search", submitted],
@@ -46,226 +67,183 @@ export default function ExploreScreen() {
     enabled: !submitted,
   });
 
-  const orbits = useQuery({
-    queryKey: ["orbits"],
-    queryFn: () => api.orbits.list(),
-    enabled: !submitted,
-  });
+  const trendingItems = useMemo(() => trending.data?.data ?? [], [trending.data]);
+
+  const header = (
+    <ExploreHeader
+      query={q}
+      onChangeQuery={setQ}
+      onSubmitSearch={runSearch}
+      onOpenMenu={() => setMenuOpen(true)}
+      onOpenSettings={() => router.push("/settings")}
+      searchMode={submitted.length >= 2}
+      onBack={clearSearch}
+    />
+  );
 
   if (submitted.length >= 2) {
     return (
       <TabScaffold>
-        <View style={styles.container}>
-          <View style={[styles.searchRow, { paddingTop: insets.top + 8 }]}>
-          <TextInput
-            style={styles.search}
-            placeholder="Ara (min. 2 karakter)"
-            placeholderTextColor={OrblyColors.textSecondary}
-            value={q}
-            onChangeText={setQ}
-            onSubmitEditing={runSearch}
-            returnKeyType="search"
-          />
-          <Pressable style={styles.searchBtn} onPress={runSearch}>
-            <Text style={styles.searchBtnText}>Ara</Text>
-          </Pressable>
-          </View>
-          <Pressable onPress={() => { setSubmitted(""); setQ(""); }}>
-            <Text style={styles.clear}>Aramayı temizle</Text>
-          </Pressable>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+          {header}
           {search.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color={OrblyColors.accent} />
-        ) : search.isError ? (
-          <EmptyState
-            title="Arama başarısız"
-            description={formatUserError(search.error)}
-            onAction={() => void search.refetch()}
-            actionLabel="Tekrar dene"
-          />
-        ) : (
-          <FlatList
-            data={[
-              ...(search.data?.users.map((u) => ({ type: "user" as const, user: u })) ?? []),
-              ...(search.data?.orbits.map((o) => ({ type: "orbit" as const, orbit: o })) ?? []),
-              ...(search.data?.posts.map((p) => ({ type: "post" as const, post: p })) ?? []),
-            ]}
-            keyExtractor={(item, i) =>
-              item.type === "user"
-                ? `u-${item.user.id}`
-                : item.type === "orbit"
-                  ? `o-${item.orbit.id}`
-                  : `p-${item.post.id}-${i}`
-            }
-            renderItem={({ item }) => {
-              if (item.type === "user") {
-                return (
-                  <Pressable
-                    style={styles.userRow}
-                    onPress={() => router.push(`/profile/${item.user.username}`)}
-                  >
-                    <View style={styles.avatar}>
-                      {item.user.avatarUrl ? (
-                        <Image source={{ uri: item.user.avatarUrl }} style={styles.avatarImg} />
-                      ) : (
-                        <Text style={styles.avatarLetter}>
-                          {item.user.displayName.charAt(0)}
-                        </Text>
-                      )}
-                    </View>
-                    <View>
-                      <Text style={styles.rowTitle}>{item.user.displayName}</Text>
-                      <Text style={styles.rowSub}>@{item.user.username}</Text>
-                    </View>
-                  </Pressable>
-                );
+            <ActivityIndicator style={styles.loader} color={OrblyColors.accent} />
+          ) : search.isError ? (
+            <EmptyState
+              title="Arama başarısız"
+              description={formatUserError(search.error)}
+              onAction={() => void search.refetch()}
+              actionLabel="Tekrar dene"
+            />
+          ) : (
+            <FlatList
+              data={[
+                ...(search.data?.users.map((u) => ({ type: "user" as const, user: u })) ?? []),
+                ...(search.data?.orbits.map((o) => ({ type: "orbit" as const, orbit: o })) ?? []),
+                ...(search.data?.posts.map((p) => ({ type: "post" as const, post: p })) ?? []),
+              ]}
+              keyExtractor={(item, i) =>
+                item.type === "user"
+                  ? `u-${item.user.id}`
+                  : item.type === "orbit"
+                    ? `o-${item.orbit.id}`
+                    : `p-${item.post.id}-${i}`
               }
-              if (item.type === "orbit") {
-                return (
-                  <Pressable
-                    style={styles.userRow}
-                    onPress={() => router.push(`/orbits/${item.orbit.slug}`)}
-                  >
-                    <View style={styles.orbitIcon}>
-                      <Text style={styles.orbitLetter}>{item.orbit.name.charAt(0)}</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.rowTitle}>{item.orbit.name}</Text>
-                      <Text style={styles.rowSub}>@{item.orbit.slug}</Text>
-                    </View>
-                  </Pressable>
-                );
-              }
-              return <PostCard post={item.post} />;
-            }}
-            ListEmptyComponent={
-              <EmptyState title="Sonuç bulunamadı" icon="search" />
-            }
-          />
+              renderItem={({ item }) => {
+                if (item.type === "user") {
+                  return (
+                    <Pressable
+                      style={styles.userRow}
+                      onPress={() => router.push(`/profile/${item.user.username}`)}
+                    >
+                      <View style={styles.avatar}>
+                        {item.user.avatarUrl ? (
+                          <Image source={{ uri: item.user.avatarUrl }} style={styles.avatarImg} />
+                        ) : (
+                          <Text style={styles.avatarLetter}>
+                            {item.user.displayName.charAt(0)}
+                          </Text>
+                        )}
+                      </View>
+                      <View>
+                        <Text style={styles.rowTitle}>{item.user.displayName}</Text>
+                        <Text style={styles.rowSub}>@{item.user.username}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                }
+                if (item.type === "orbit") {
+                  return (
+                    <Pressable
+                      style={styles.userRow}
+                      onPress={() => router.push(`/orbits/${item.orbit.slug}`)}
+                    >
+                      <View style={styles.orbitIcon}>
+                        <Text style={styles.orbitLetter}>{item.orbit.name.charAt(0)}</Text>
+                      </View>
+                      <View>
+                        <Text style={styles.rowTitle}>{item.orbit.name}</Text>
+                        <Text style={styles.rowSub}>@{item.orbit.slug}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                }
+                return <PostCard post={item.post} />;
+              }}
+              ListEmptyComponent={<EmptyState title="Sonuç bulunamadı" icon="search" />}
+            />
           )}
         </View>
+        <MenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} />
       </TabScaffold>
     );
   }
 
+  const tabsBar = (
+    <ExploreScrollTabs tabs={EXPLORE_TABS} active={tab} onChange={setTab} />
+  );
+
+  const renderExploreFeed = (showFeatured: boolean) => {
+    const feedTab = tab === "trending" ? "trending" : "for-you";
+    const listHeader = (
+      <>
+        {tabsBar}
+        {showFeatured ? (
+          <ExploreFeaturedCard onPress={() => router.push("/orbits")} />
+        ) : null}
+        {trending.isLoading ? (
+          <ActivityIndicator color={OrblyColors.accent} style={styles.loader} />
+        ) : null}
+        {trending.isError ? (
+          <EmptyState
+            title="Gündem yüklenemedi"
+            description={formatUserError(trending.error)}
+            onAction={() => void trending.refetch()}
+            actionLabel="Tekrar dene"
+          />
+        ) : null}
+        {!trending.isLoading && !trending.isError
+          ? trendingItems.map((item) => (
+              <ExploreTrendRow
+                key={item.tag}
+                title={item.tag.startsWith("#") ? item.tag : `#${item.tag}`}
+                meta={trendMetaLine(item.count)}
+                onPress={() => router.push(`/hashtag/${encodeURIComponent(item.tag)}`)}
+              />
+            ))
+          : null}
+      </>
+    );
+
+    return (
+      <ExplorePostsFeed
+        tab={feedTab}
+        ListHeaderComponent={listHeader}
+      />
+    );
+  };
+
+  const renderTabBody = () => {
+    if (tab === "for-you" || tab === "trending") {
+      return renderExploreFeed(tab === "for-you");
+    }
+
+    const placeholderLabel =
+      tab === "news" ? "Haberler" : tab === "sports" ? "Spor" : "Eğlence";
+
+    return (
+      <FlatList
+        style={styles.list}
+        data={[] as { id: string }[]}
+        keyExtractor={() => "empty"}
+        renderItem={() => null}
+        ListHeaderComponent={tabsBar}
+        ListEmptyComponent={
+          <EmptyState
+            title={`${placeholderLabel} yakında`}
+            description="Bu kategori için özel gündem listesi üzerinde çalışıyoruz."
+          />
+        }
+      />
+    );
+  };
+
   return (
     <TabScaffold>
-      <View style={styles.container}>
-        <View style={[styles.searchRow, { paddingTop: insets.top + 8 }]}>
-        <FontAwesome
-          name="search"
-          size={16}
-          color={OrblyColors.textSecondary}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.search}
-          placeholder="Kullanıcı, gönderi veya orbit ara"
-          placeholderTextColor={OrblyColors.textSecondary}
-          value={q}
-          onChangeText={setQ}
-          onSubmitEditing={runSearch}
-          returnKeyType="search"
-        />
-        </View>
-
-        <FlatList
-        ListHeaderComponent={
-          <>
-            <Text style={styles.section}>
-              <FontAwesome name="line-chart" size={16} color={OrblyColors.accent} /> Gündemde
-            </Text>
-            {trending.isLoading && (
-              <ActivityIndicator color={OrblyColors.accent} style={{ marginVertical: 16 }} />
-            )}
-          </>
-        }
-        data={trending.data?.data ?? []}
-        keyExtractor={(item) => item.tag}
-        renderItem={({ item, index }) => (
-          <Pressable
-            style={styles.trendRow}
-            onPress={() => router.push(`/hashtag/${encodeURIComponent(item.tag)}`)}
-          >
-            <Text style={styles.trendMeta}>{index + 1} · Trend</Text>
-            <Text style={styles.trendTag}>#{item.tag}</Text>
-            <Text style={styles.trendMeta}>{formatCount(item.count)} gönderi</Text>
-          </Pressable>
-        )}
-        ListFooterComponent={
-          <>
-            <Text style={[styles.section, styles.sectionTop]}>
-              <FontAwesome name="star" size={16} color={OrblyColors.orbit} /> Orbit&apos;ler
-            </Text>
-            {orbits.isLoading ? (
-              <ActivityIndicator color={OrblyColors.accent} />
-            ) : (
-              orbits.data?.data.map((o) => (
-                <Pressable
-                  key={o.id}
-                  style={styles.orbitRow}
-                  onPress={() => router.push(`/orbits/${o.slug}`)}
-                >
-                  <View style={styles.orbitIcon}>
-                    <Text style={styles.orbitLetter}>{o.name.charAt(0)}</Text>
-                  </View>
-                  <View style={styles.orbitMeta}>
-                    <Text style={styles.rowTitle}>{o.name}</Text>
-                    <Text style={styles.rowSub}>@{o.slug}</Text>
-                  </View>
-                  <Text style={styles.members}>
-                    <FontAwesome name="users" size={12} /> {o.stats.memberCount}
-                  </Text>
-                </Pressable>
-              ))
-            )}
-          </>
-        }
-        />
+      <View style={[styles.container, styles.flex, { paddingTop: insets.top }]}>
+        {header}
+        <View style={styles.flex}>{renderTabBody()}</View>
       </View>
+      <MenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </TabScaffold>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrblyColors.bgPrimary },
-  searchRow: { flexDirection: "row", alignItems: "center", padding: 12, gap: 8 },
-  searchIcon: { position: "absolute", left: 24, zIndex: 1 },
-  search: {
-    flex: 1,
-    backgroundColor: OrblyColors.bgSecondary,
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    paddingLeft: 40,
-    color: OrblyColors.textPrimary,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: OrblyColors.border,
-  },
-  searchBtn: {
-    backgroundColor: OrblyColors.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 999,
-  },
-  searchBtnText: { color: "#fff", fontWeight: "700" },
-  clear: { color: OrblyColors.accent, paddingHorizontal: 16, paddingBottom: 8, fontWeight: "600" },
-  section: {
-    color: OrblyColors.textPrimary,
-    fontSize: 17,
-    fontWeight: "700",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  sectionTop: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: OrblyColors.border, marginTop: 8 },
-  trendRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: OrblyColors.border,
-  },
-  trendMeta: { color: OrblyColors.textSecondary, fontSize: 13 },
-  trendTag: { color: OrblyColors.textPrimary, fontSize: 17, fontWeight: "700" },
+  flex: { flex: 1 },
+  list: { flex: 1 },
+  loader: { marginVertical: 32 },
   userRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -291,7 +269,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: OrblyColors.border,
   },
@@ -304,6 +283,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   orbitLetter: { fontSize: 20, fontWeight: "800", color: OrblyColors.orbit },
-  orbitMeta: { flex: 1 },
+  orbitMeta: { flex: 1, minWidth: 0 },
   members: { color: OrblyColors.textSecondary, fontSize: 13 },
 });

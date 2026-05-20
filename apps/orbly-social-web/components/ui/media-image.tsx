@@ -2,12 +2,8 @@
 
 import Image from "next/image";
 
-import { resolveMediaUrl } from "@/lib/media-url";
+import { resolveMediaUrl, shouldBypassNextImageOptimizer } from "@/lib/media-url";
 import { cn } from "@/lib/cn";
-
-function needsUnoptimized(url: string) {
-  return url.startsWith("blob:") || url.startsWith("data:");
-}
 
 export function MediaImage({
   src,
@@ -23,14 +19,27 @@ export function MediaImage({
   const resolved = resolveMediaUrl(src);
   if (!resolved) return null;
 
+  if (shouldBypassNextImageOptimizer(resolved)) {
+    return (
+      // Harici medya: doğrudan <img> — fill/layout ve _next/image 400 sorunları yok
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={resolved}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        className={cn("block max-w-full bg-bg-secondary object-cover", className)}
+      />
+    );
+  }
+
   return (
-    <div className={cn("relative overflow-hidden bg-bg-secondary", className)}>
+    <div className={cn("relative overflow-hidden bg-bg-secondary min-h-[48px]", className)}>
       <Image
         src={resolved}
         alt={alt}
         fill
         sizes={sizes}
-        unoptimized={needsUnoptimized(resolved)}
         className="object-cover"
       />
     </div>

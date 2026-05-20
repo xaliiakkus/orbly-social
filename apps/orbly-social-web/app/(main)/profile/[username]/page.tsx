@@ -1,10 +1,11 @@
 "use client";
 
 import { formatUserError } from "@orbly/api-client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useFollowToggle, useStartConversation, type FollowFeedback } from "@orbly/features";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bookmark, FileText, Settings } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { EditProfileModal } from "@/components/profile/edit-profile-modal";
@@ -14,14 +15,18 @@ import { ProfileSkeleton } from "@/components/profile/profile-skeleton";
 import { ProfileTabs, type ProfileTab } from "@/components/profile/profile-tabs";
 import { ProfileTopBar } from "@/components/profile/profile-top-bar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { UserFeedbackBanner } from "@/components/ui/user-feedback";
 import { FeedSkeleton } from "@/components/feed/feed-skeleton";
 import { api } from "@/lib/api";
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
+  const router = useRouter();
   const qc = useQueryClient();
   const [tab, setTab] = useState<ProfileTab>("posts");
   const [editOpen, setEditOpen] = useState(false);
+  const [feedback, setFeedback] = useState<FollowFeedback | null>(null);
+  const startDm = useStartConversation();
 
   const profile = useQuery({
     queryKey: ["profile", username],
@@ -29,12 +34,13 @@ export default function ProfilePage() {
     enabled: !!username,
   });
 
-  const follow = useMutation({
-    mutationFn: (following: boolean) =>
-      following
-        ? api.users.unfollow(profile.data!.user.id)
-        : api.users.follow(profile.data!.user.id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["profile", username] }),
+  const follow = useFollowToggle(username, {
+    onFeedback: (f) => {
+      setFeedback(f);
+      if (f.type === "success") {
+        window.setTimeout(() => setFeedback(null), 3500);
+      }
+    },
   });
 
   if (profile.isLoading) {
@@ -64,7 +70,18 @@ export default function ProfilePage() {
     );
   }
 
-  const { user, isFollowing, isSelf } = profile.data;
+  const { user, isFollowing, isSelf, canMessage } = profile.data;
+
+  const onMessage = () => {
+    if (!canMessage) {
+      window.alert("Mesaj göndermek için ikinizin de birbirinizi takip etmesi gerekir.");
+      return;
+    }
+    startDm.mutate(user.id, {
+      onSuccess: ({ conversationId }) => router.push(`/messages/${conversationId}`),
+      onError: (err) => window.alert(formatUserError(err)),
+    });
+  };
 
   return (
     <>
@@ -98,6 +115,14 @@ export default function ProfilePage() {
           }
         />
 
+        {feedback ? (
+          <UserFeedbackBanner
+            message={feedback.message}
+            variant={feedback.type}
+            onDismiss={() => setFeedback(null)}
+          />
+        ) : null}
+
         <ProfileHeader
           user={user}
           isSelf={isSelf}
@@ -105,6 +130,9 @@ export default function ProfilePage() {
           followPending={follow.isPending}
           onFollowToggle={() => follow.mutate(isFollowing)}
           onEditProfile={() => setEditOpen(true)}
+          onMessage={isSelf ? undefined : onMessage}
+          canMessage={canMessage}
+          messagePending={startDm.isPending}
         />
 
         <ProfileTabs active={tab} onChange={setTab} />

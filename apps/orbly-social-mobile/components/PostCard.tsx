@@ -1,9 +1,14 @@
 import {
   canManagePost,
+  getRepostDisplayCount,
+  getRepostTargetId,
+  getPostShareUrl,
+  getRepostTargetPost,
   postRoom,
   useDeletePost,
   usePostBookmark,
   usePostLike,
+  usePostRepost,
   usePostView,
   useUpdatePost,
 } from "@orbly/features";
@@ -13,13 +18,16 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Image } from "@/components/ui/expo-image";
 import { useRouter } from "expo-router";
 import { useContext, useEffect, useState, type ComponentProps } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
 
 import { EditPostModal } from "@/components/EditPostModal";
 import { PostOwnerMenuDialog } from "@/components/PostOwnerMenuDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuthStore } from "@/lib/auth-store";
 import { ReplyComposeContext } from "@/lib/reply-compose-context";
+import { RepostComposeContext } from "@/lib/repost-compose-context";
+import { RepostEmbed } from "@/components/RepostEmbed";
+import { RepostersModal } from "@/components/RepostersModal";
 
 import { PollBlock } from "@/components/PollBlock";
 import { PostContent } from "@/components/ui/PostContent";
@@ -74,12 +82,17 @@ export function PostCard({
 }) {
   const router = useRouter();
   const replyCompose = useContext(ReplyComposeContext);
+  const repostCompose = useContext(RepostComposeContext);
   const viewer = useAuthStore((s) => s.user);
+  const repostTarget = getRepostTargetPost(post);
+  const repostTargetId = getRepostTargetId(post);
+  const isRepostCard = !!post.repostOf;
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [errorDialog, setErrorDialog] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editError, setEditError] = useState("");
+  const [repostersOpen, setRepostersOpen] = useState(false);
   const manageable = canManagePost(post, viewer?.id);
   const deletePost = useDeletePost();
   const updatePost = useUpdatePost();
@@ -94,7 +107,19 @@ export function PostCard({
     post.id,
     post.bookmarkedByMe ?? false,
   );
+  const {
+    reposted,
+    count: repostCount,
+    toggle: toggleRepost,
+    isPending: repostPending,
+  } = usePostRepost(
+    repostTargetId,
+    post.repostedByMe ?? false,
+    getRepostDisplayCount(post),
+    post.myRepostId,
+  );
   const view = usePostView(post.id);
+  const ownPost = viewer?.id === repostTarget.author.id;
 
   useEffect(() => {
     view.mutate();
@@ -127,6 +152,32 @@ export function PostCard({
       });
   };
 
+  const sharePostLink = () => {
+    const url = getPostShareUrl(repostTargetId);
+    void Share.share({ message: url, url });
+  };
+
+  const openRepostMenu = () => {
+    if (ownPost || repostPending) return;
+    const quotePost = () => repostCompose?.openQuote(post);
+    const copyLink = { text: "Bağlantıyı paylaş", onPress: sharePostLink };
+    if (reposted) {
+      Alert.alert("Yeniden paylaş", undefined, [
+        { text: "Yeniden paylaşımı geri al", style: "destructive", onPress: () => void toggleRepost() },
+        { text: "Alıntıla", onPress: quotePost },
+        copyLink,
+        { text: "İptal", style: "cancel" },
+      ]);
+      return;
+    }
+    Alert.alert("Yeniden paylaş", undefined, [
+      { text: "Yeniden paylaş", onPress: () => void toggleRepost() },
+      { text: "Alıntıla", onPress: quotePost },
+      copyLink,
+      { text: "İptal", style: "cancel" },
+    ]);
+  };
+
   const saveEdit = async (content: string) => {
     setEditError("");
     try {
@@ -147,10 +198,10 @@ export function PostCard({
       style={[styles.card, highlightReply && styles.cardHighlight]}
       onPress={openPost}
     >
-      {post.repostOfId ? (
+      {isRepostCard ? (
         <View style={styles.repostRow}>
           <FontAwesome name="retweet" size={12} color={OrblyColors.repost} />
-          <Text style={styles.repostLabel}>Yeniden paylaşıldı</Text>
+          <Text style={styles.repostLabel}>{post.author.displayName} yeniden paylaştı</Text>
         </View>
       ) : null}
 
@@ -262,17 +313,21 @@ export function PostCard({
             </Text>
           ) : null}
 
-          <View style={styles.contentWrap}>
-            <PostContent content={post.content} />
-          </View>
+          {post.content.trim() ? (
+            <View style={styles.contentWrap}>
+              <PostContent content={post.content} />
+            </View>
+          ) : null}
 
-          {post.poll ? (
+          {post.repostOf ? <RepostEmbed post={post.repostOf} onRefresh={onRefresh} /> : null}
+
+          {!post.repostOf && post.poll ? (
             <View onStartShouldSetResponder={() => true}>
               <PollBlock postId={post.id} poll={post.poll} onVoted={onRefresh} />
             </View>
           ) : null}
 
-          {post.mediaUrls.length > 0 ? (
+          {!post.repostOf && post.mediaUrls.length > 0 ? (
             <View
               style={[styles.mediaWrap, post.mediaUrls.length >= 2 && styles.mediaWrapMulti]}
               onStartShouldSetResponder={() => true}
@@ -298,9 +353,25 @@ export function PostCard({
             />
             <PostAction
               icon="retweet"
-              count={post.stats.repostCount}
               color={OrblyColors.repost}
+              active={reposted}
+              onPress={openRepostMenu}
+              disabled={repostPending || ownPost}
             />
+            {repostCount > 0 ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  setRepostersOpen(true);
+                }}
+                hitSlop={8}
+                style={styles.repostCountBtn}
+              >
+                <Text style={[styles.actionCount, reposted && { color: OrblyColors.repost }]}>
+                  {formatCount(repostCount)}
+                </Text>
+              </Pressable>
+            ) : null}
             <PostAction
               icon={liked ? "heart" : "heart-o"}
               count={likeCount}
@@ -341,6 +412,11 @@ export function PostCard({
         confirmLabel="Tamam"
         singleAction
         onConfirm={() => setErrorDialog(null)}
+      />
+      <RepostersModal
+        postId={repostTargetId}
+        visible={repostersOpen}
+        onClose={() => setRepostersOpen(false)}
       />
       <EditPostModal
         post={post}
@@ -439,4 +515,5 @@ const styles = StyleSheet.create({
     minWidth: 36,
   },
   actionCount: { color: OrblyColors.textSecondary, fontSize: 13 },
+  repostCountBtn: { paddingVertical: 8, paddingRight: 4, marginLeft: -4 },
 });

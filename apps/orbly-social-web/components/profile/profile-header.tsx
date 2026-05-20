@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, Calendar, Link2, MapPin } from "lucide-react";
+import { BadgeCheck, Calendar, Link2, Mail, MapPin } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
@@ -34,6 +34,9 @@ export function ProfileHeader({
   onFollowToggle,
   followPending,
   onEditProfile,
+  onMessage,
+  canMessage,
+  messagePending,
 }: {
   user: UserPublic;
   isSelf: boolean;
@@ -41,6 +44,9 @@ export function ProfileHeader({
   onFollowToggle: () => void;
   followPending?: boolean;
   onEditProfile?: () => void;
+  onMessage?: () => void;
+  canMessage?: boolean;
+  messagePending?: boolean;
 }) {
   const banner = resolveMediaUrl(user.bannerUrl);
 
@@ -59,15 +65,15 @@ export function ProfileHeader({
         )}
       </div>
 
-      <div className="px-4 pb-0">
-        <div className="flex justify-between items-start gap-3 -mt-[68px] mb-3">
+      <div className="relative z-[1] px-4 pb-0">
+        <div className="mb-3 flex items-end justify-between gap-2 sm:gap-3 -mt-11 sm:-mt-[4.25rem]">
           <Avatar
             src={user.avatarUrl}
             name={user.displayName}
             size="xl"
-            className="h-[134px] w-[134px] max-sm:h-[84px] max-sm:w-[84px] text-[3.5rem] z-10 max-sm:text-2xl border-4 border-bg-primary shrink-0"
+            className="z-10 h-[84px] w-[84px] shrink-0 border-4 border-bg-primary text-2xl sm:h-[134px] sm:w-[134px] sm:text-[3.5rem]"
           />
-          <div className="flex gap-2 mt-[76px] max-sm:mt-[44px] shrink-0">
+          <div className="relative z-10 mb-0.5 flex max-w-[min(100%,12rem)] shrink-0 flex-wrap justify-end gap-2 sm:max-w-none">
             {isSelf ? (
               <Button
                 variant="outline"
@@ -79,13 +85,23 @@ export function ProfileHeader({
               </Button>
             ) : (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="font-bold rounded-full px-4 h-9 border-text-secondary/80 hover:bg-bg-hover"
-                >
-                  …
-                </Button>
+                {onMessage ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-bold rounded-full px-3 h-9 border-text-secondary/80 hover:bg-bg-hover"
+                    onClick={onMessage}
+                    disabled={!canMessage || messagePending}
+                    title={
+                      canMessage
+                        ? "Mesaj gönder"
+                        : "Mesaj için karşılıklı takip gerekir"
+                    }
+                    aria-label="Mesaj gönder"
+                  >
+                    <Mail className="h-[18px] w-[18px]" />
+                  </Button>
+                ) : null}
                 <Button
                   variant={isFollowing ? "outline" : "primary"}
                   size="sm"

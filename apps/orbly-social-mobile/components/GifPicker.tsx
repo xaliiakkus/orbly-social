@@ -49,7 +49,7 @@ function GifPickerBody({
         <ActivityIndicator style={styles.loader} color={OrblyColors.accent} />
       ) : null}
       {isError ? (
-        <Text style={styles.hint}>GIF araması kullanılamıyor (API TENOR_API_KEY)</Text>
+        <Text style={styles.hint}>GIF araması kullanılamıyor</Text>
       ) : null}
       <FlatList
         data={data?.data ?? []}

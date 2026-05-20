@@ -69,6 +69,80 @@ export function applyPostUpdateToCache(qc: QueryClient, updated: PostPublic) {
   );
 }
 
+export function applyPostRepostToCache(
+  qc: QueryClient,
+  targetPostId: string,
+  patch: {
+    repostedByMe: boolean;
+    myRepostId: string | null;
+    repostCount: number;
+  },
+) {
+  const applyToPost = (p: PostPublic): PostPublic => {
+    const isTarget = p.id === targetPostId;
+    const embedTarget = p.repostOf?.id === targetPostId;
+    if (!isTarget && !embedTarget) return p;
+    const next: PostPublic = {
+      ...p,
+      repostedByMe: patch.repostedByMe,
+      myRepostId: patch.myRepostId ?? undefined,
+    };
+    if (isTarget) {
+      next.stats = { ...p.stats, repostCount: patch.repostCount };
+    }
+    if (p.repostOf && embedTarget) {
+      next.repostOf = {
+        ...p.repostOf,
+        stats: { ...p.repostOf.stats, repostCount: patch.repostCount },
+        repostedByMe: patch.repostedByMe,
+        myRepostId: patch.myRepostId ?? undefined,
+      };
+    }
+    return next;
+  };
+
+  qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: ["feed"] }, (old) => {
+    if (!old?.pages) return old;
+    return {
+      ...old,
+      pages: old.pages.map((page) => ({
+        ...page,
+        data: page.data.map(applyToPost),
+      })),
+    };
+  });
+  qc.setQueriesData<{ post: PostPublic }>({ queryKey: ["post", targetPostId] }, (old) => {
+    if (!old?.post) return old;
+    return { post: applyToPost(old.post) };
+  });
+  qc.setQueriesData<InfiniteData<FeedPage>>(
+    { queryKey: ["profile-posts"] },
+    (old) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: page.data.map(applyToPost),
+        })),
+      };
+    },
+  );
+  qc.setQueriesData<InfiniteData<FeedPage>>(
+    { queryKey: ["orbit-posts"] },
+    (old) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: page.data.map(applyToPost),
+        })),
+      };
+    },
+  );
+}
+
 export function applyPostLikeToCache(qc: QueryClient, postId: string, liked: boolean) {
   const patch = { likedByMe: liked };
   qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: ["feed"] }, (old) => {

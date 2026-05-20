@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def is_configured() -> bool:
@@ -22,7 +25,10 @@ def _client():
         "endpoint_url": settings.s3_endpoint,
         "aws_access_key_id": settings.s3_access_key_id,
         "aws_secret_access_key": settings.s3_secret_access_key,
-        "config": Config(signature_version="s3v4"),
+        "config": Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
     }
     if region:
         kwargs["region_name"] = region
@@ -68,6 +74,24 @@ def create_presigned_upload(
     }
 
 
+def verify_bucket() -> None:
+    """Startup: bucket adı panel ile uyumlu mu (404 önleme)."""
+    from botocore.exceptions import ClientError
+
+    client = _client()
+    bucket = settings.s3_bucket
+    try:
+        client.head_bucket(Bucket=bucket)
+        logger.info("iDrive bucket OK: %s", bucket)
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "")
+        logger.error(
+            "iDrive bucket %r erişilemiyor (%s). IDRIVE_BUCKET=orbly olmalı.",
+            bucket,
+            code or exc,
+        )
+
+
 def upload_bytes(
     data: bytes,
     *,
@@ -75,12 +99,22 @@ def upload_bytes(
     content_type: str,
     folder: str = "media",
 ) -> str:
+    from botocore.exceptions import ClientError
+
     key = _object_key(folder, filename)
     client = _client()
-    client.put_object(
-        Bucket=settings.s3_bucket,
-        Key=key,
-        Body=data,
-        ContentType=content_type,
-    )
+    bucket = settings.s3_bucket
+    try:
+        client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=data,
+            ContentType=content_type,
+        )
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "")
+        msg = exc.response.get("Error", {}).get("Message", str(exc))
+        raise RuntimeError(
+            f"iDrive upload failed (bucket={bucket!r}, code={code}): {msg}"
+        ) from exc
     return _public_url(key)

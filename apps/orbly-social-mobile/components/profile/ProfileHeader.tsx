@@ -1,7 +1,7 @@
 import type { UserPublic } from "@orbly/types";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Image } from "@/components/ui/expo-image";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -33,6 +33,9 @@ export function ProfileHeader({
   onEditProfile,
   onBack,
   onSettings,
+  onMessage,
+  canMessage,
+  messagePending,
 }: {
   user: UserPublic;
   isSelf: boolean;
@@ -42,8 +45,13 @@ export function ProfileHeader({
   onEditProfile?: () => void;
   onBack?: () => void;
   onSettings?: () => void;
+  onMessage?: () => void;
+  canMessage?: boolean;
+  messagePending?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const compact = screenWidth < 640;
   const banner = resolveMediaUrl(user.bannerUrl);
 
   return (
@@ -77,23 +85,49 @@ export function ProfileHeader({
       </View>
 
       <View style={styles.body}>
-        <View style={styles.avatarRow}>
-          <UserAvatar name={user.displayName} uri={user.avatarUrl} size="profile" border />
+        <View
+          style={[
+            styles.avatarRow,
+            { marginTop: compact ? -40 : -64 },
+          ]}
+        >
+          <UserAvatar
+            name={user.displayName}
+            uri={user.avatarUrl}
+            size={compact ? "xl" : "profile"}
+            border
+          />
           <View style={styles.actionCol}>
             {isSelf ? (
               <Pressable style={styles.outlineBtn} onPress={onEditProfile}>
                 <Text style={styles.outlineBtnText}>Profili düzenle</Text>
               </Pressable>
             ) : (
-              <Pressable
-                style={[styles.followBtn, isFollowing && styles.followingBtn]}
-                disabled={followPending}
-                onPress={onFollowToggle}
-              >
-                <Text style={[styles.followText, isFollowing && styles.followingText]}>
-                  {isFollowing ? "Takip ediliyor" : "Takip et"}
-                </Text>
-              </Pressable>
+              <View style={styles.actionRow}>
+                {onMessage ? (
+                  <Pressable
+                    style={[styles.msgBtn, !canMessage && styles.msgBtnDisabled]}
+                    onPress={onMessage}
+                    disabled={!canMessage || messagePending}
+                    hitSlop={8}
+                  >
+                    <FontAwesome
+                      name="envelope"
+                      size={18}
+                      color={canMessage ? OrblyColors.textPrimary : OrblyColors.textSecondary}
+                    />
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={[styles.followBtn, isFollowing && styles.followingBtn]}
+                  disabled={followPending}
+                  onPress={onFollowToggle}
+                >
+                  <Text style={[styles.followText, isFollowing && styles.followingText]}>
+                    {isFollowing ? "Takip ediliyor" : "Takip et"}
+                  </Text>
+                </Pressable>
+              </View>
             )}
           </View>
         </View>
@@ -175,23 +209,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  body: { paddingHorizontal: 16, paddingBottom: 4 },
+  body: { paddingHorizontal: 16, paddingBottom: 4, zIndex: 1 },
   avatarRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginTop: -48,
     marginBottom: 12,
+    gap: 8,
   },
-  actionCol: { paddingBottom: 4 },
+  actionCol: {
+    flexShrink: 1,
+    maxWidth: "58%",
+    alignItems: "flex-end",
+    zIndex: 2,
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  msgBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: OrblyColors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  msgBtnDisabled: { opacity: 0.45 },
   outlineBtn: {
     borderWidth: 1,
     borderColor: OrblyColors.border,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
+    maxWidth: "100%",
   },
-  outlineBtnText: { fontWeight: "700", color: OrblyColors.textPrimary, fontSize: 15 },
+  outlineBtnText: {
+    fontWeight: "700",
+    color: OrblyColors.textPrimary,
+    fontSize: 15,
+    flexShrink: 1,
+  },
   followBtn: {
     backgroundColor: OrblyColors.textPrimary,
     borderRadius: 999,

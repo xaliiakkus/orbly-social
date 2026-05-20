@@ -4,6 +4,7 @@ import {
   POST_MAX_LENGTH,
   useComposePost,
   useLiveList,
+  useQuoteRepost,
 } from "@orbly/features";
 import { formatUserError } from "@orbly/api-client";
 import * as ImagePicker from "expo-image-picker";
@@ -50,6 +51,7 @@ type ComposeState = { canPost: boolean; isPending: boolean };
 type Props = {
   replyToId?: string;
   replyToUsername?: string;
+  quoteRepostId?: string;
   /** Yanıt hedefini köke döndür (X tarzı iptal). */
   onClearReply?: () => void;
   onPosted?: () => void;
@@ -70,6 +72,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
   {
     replyToId,
     replyToUsername,
+    quoteRepostId,
     onClearReply,
     onPosted,
     variant = "inline",
@@ -102,17 +105,24 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
   const { data: liveData } = useLiveList();
   const liveAvailable = liveAvailableProp ?? liveData?.configured !== false;
   const compose = useComposePost();
+  const quoteRepost = useQuoteRepost();
+  const isQuote = !!quoteRepostId;
 
   const totalMedia = media.length + gifUrls.length;
   const remaining = POST_MAX_LENGTH - content.length;
   const canPost =
-    (content.trim().length > 0 || totalMedia > 0) &&
+    (isQuote
+      ? content.trim().length > 0
+      : content.trim().length > 0 || totalMedia > 0) &&
     (!pollOptions || pollOptions.filter((o) => o.trim()).length >= MIN_POLL_OPTIONS);
 
   useEffect(() => {
     if (!active) return;
-    onComposeState?.({ canPost, isPending: compose.isPending });
-  }, [active, canPost, compose.isPending, onComposeState]);
+    onComposeState?.({
+      canPost,
+      isPending: compose.isPending || quoteRepost.isPending,
+    });
+  }, [active, canPost, compose.isPending, quoteRepost.isPending, onComposeState]);
 
   useEffect(() => {
     if (!active || !isXLayout) return;
@@ -170,8 +180,28 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
   const removeGif = (url: string) => setGifUrls((g) => g.filter((x) => x !== url));
 
   const submit = useCallback(() => {
-    if (!canPost || compose.isPending) return;
+    if (!canPost || compose.isPending || quoteRepost.isPending) return;
     setUploadError(null);
+
+    const reset = () => {
+      setContent("");
+      setMedia([]);
+      setGifUrls([]);
+      setPollOptions(null);
+      onPosted?.();
+    };
+
+    if (isQuote && quoteRepostId) {
+      quoteRepost.mutate(
+        { postId: quoteRepostId, content: content.trim() },
+        {
+          onSuccess: reset,
+          onError: (err) => setUploadError(formatUserError(err)),
+        },
+      );
+      return;
+    }
+
     compose.mutate(
       {
         content: content.trim() || " ",
@@ -181,31 +211,37 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
         pollOptions: pollOptions ?? undefined,
       },
       {
-        onSuccess: () => {
-          setContent("");
-          setMedia([]);
-          setGifUrls([]);
-          setPollOptions(null);
-          onPosted?.();
-        },
+        onSuccess: reset,
         onError: (err) => setUploadError(formatUserError(err)),
       },
     );
-  }, [canPost, compose, content, media, gifUrls, pollOptions, replyToId, onPosted]);
+  }, [
+    canPost,
+    compose,
+    quoteRepost,
+    isQuote,
+    quoteRepostId,
+    content,
+    media,
+    gifUrls,
+    pollOptions,
+    replyToId,
+    onPosted,
+  ]);
 
   useImperativeHandle(ref, () => ({ submit }), [submit]);
 
   if (!user) return null;
 
-  const placeholder = isReplyFullscreen
+  const placeholder = isQuote
+    ? "Yorumunu ekle"
+    : isReplyFullscreen
     ? "Yanıtını gönder"
     : replyToUsername
       ? `@${replyToUsername} kullanıcısına yanıt yaz`
       : replyToId
         ? "Yanıtını yaz"
-        : isFullscreen
-          ? "Neler oluyor?"
-          : "Ne oluyor?";
+        : "Neler oluyor?";
 
   const mediaBlock = (media.length > 0 || gifUrls.length > 0) && (
     <View style={[styles.mediaRow, isFullscreen && styles.mediaRowFs]}>

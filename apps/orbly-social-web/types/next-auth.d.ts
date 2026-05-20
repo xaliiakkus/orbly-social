@@ -7,7 +7,6 @@ declare module "next-auth" {
     refreshToken?: string;
     orblyUser?: Record<string, unknown>;
     accessExpiresAt?: number;
-    error?: string;
   }
 
   interface User {
@@ -24,6 +23,5 @@ declare module "next-auth/jwt" {
     refreshToken?: string;
     accessExpiresAt?: number;
     orblyUser?: Record<string, unknown>;
-    error?: string;
   }
 }

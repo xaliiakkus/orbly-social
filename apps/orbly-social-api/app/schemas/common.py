@@ -89,11 +89,14 @@ class PostOut(BaseModel):
     liveBroadcastId: str | None = None
     replyToId: str | None = None
     repostOfId: str | None = None
+    repostOf: "PostOut | None" = None
     hashtags: list[str] = []
     poll: PollOut | None = None
     stats: PostStatsOut
     likedByMe: bool | None = None
     bookmarkedByMe: bool | None = None
+    repostedByMe: bool | None = None
+    myRepostId: str | None = None
     createdAt: str
     updatedAt: str
 

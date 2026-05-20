@@ -4,10 +4,10 @@ from fastapi import APIRouter, HTTPException, Query
 from app.commands.posts_cmds import delete_post, update_post
 from app.deps import OptionalUserId, UserId
 from app.models.post import Post
-from app.schemas.common import PaginatedPosts
+from app.schemas.common import PaginatedPosts, PaginatedUsers
 from app.schemas.posts import UpdatePostIn
 from app.services.post_thread import list_thread_replies
-from app.services.posts import enrich_posts
+from app.services.posts import enrich_posts, list_post_reposters
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
 router = APIRouter()
@@ -32,6 +32,15 @@ async def get_post(post_id: str, viewer_id: OptionalUserId = None):
         raise HTTPException(404, "Post not found")
     enriched = await enrich_posts([post], viewer_id)
     return {"post": enriched[0]}
+
+
+@router.get("/{post_id}/reposts", response_model=PaginatedUsers)
+async def post_reposters(
+    post_id: str,
+    cursor: str | None = None,
+    limit: int = Query(20, ge=1, le=50),
+):
+    return await list_post_reposters(post_id, cursor=cursor, limit=limit)
 
 
 @router.get("/{post_id}/replies", response_model=PaginatedPosts)

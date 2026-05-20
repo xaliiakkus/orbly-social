@@ -1,12 +1,10 @@
 import type { PresignResponse } from "@orbly/types";
 
 import { api } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/api-url";
 import { useAuthStore } from "@/lib/auth-store";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(
-  /\/$/,
-  "",
-);
+const API_BASE = getApiBaseUrl();
 
 function normalizeUploadMeta(file: File): {
   file: File;
@@ -26,53 +24,21 @@ function normalizeUploadMeta(file: File): {
   return { file, contentType, filename };
 }
 
-function parseCloudinaryError(raw: string): string {
-  try {
-    const body = JSON.parse(raw) as { error?: { message?: string } };
-    if (body.error?.message) return body.error.message;
-  } catch {
-    /* ignore */
-  }
-  return "Cloudinary yükleme başarısız";
-}
-
-async function uploadCloudinaryDirect(
-  file: File,
-  presign: PresignResponse,
-): Promise<string> {
-  const form = new FormData();
-  for (const [key, value] of Object.entries(presign.fields!)) {
-    form.append(key, String(value));
-  }
-  form.append("file", file, file.name || "upload.jpg");
-
-  const res = await fetch(presign.uploadUrl, { method: "POST", body: form });
-  const raw = await res.text();
-  if (!res.ok) {
-    throw new Error(parseCloudinaryError(raw));
-  }
-  const data = JSON.parse(raw) as { secure_url?: string; url?: string };
-  const url = data.secure_url ?? data.url;
-  if (!url) throw new Error("Cloudinary yanıtında URL yok");
-  return url;
-}
-
-/** API üzerinden yükleme — imza/CORS sorunlarında güvenilir yedek. */
+/** API multipart upload — Cloudinary (resim) / iDrive (video) sunucuda işlenir. */
 async function uploadViaServer(
   file: File,
   folder: string,
+  storage: "auto" | "cloudinary" | "idrive" = "auto",
 ): Promise<string> {
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(
-    `${API_BASE}/v1/media/upload?folder=${encodeURIComponent(folder)}`,
-    {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    },
-  );
+  const params = new URLSearchParams({ folder, storage });
+  const res = await fetch(`${API_BASE}/v1/media/upload?${params}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
   if (!res.ok) {
     let msg = "Yükleme başarısız";
     try {
@@ -88,49 +54,70 @@ async function uploadViaServer(
   return data.publicUrl;
 }
 
-async function uploadWithPresign(
+async function uploadIdrivePut(
+  file: File,
+  presign: PresignResponse,
+  contentType: string,
+): Promise<string> {
+  const res = await fetch(presign.uploadUrl, {
+    method: presign.method || "PUT",
+    headers: { "Content-Type": contentType },
+    body: file,
+  });
+  if (!res.ok) throw new Error(`iDrive PUT ${res.status}`);
+  if (!presign.publicUrl) throw new Error("iDrive public URL yok");
+  return presign.publicUrl;
+}
+
+async function uploadCloudinaryPost(
+  file: File,
+  presign: PresignResponse,
+): Promise<string> {
+  if (!presign.cloudinary || !presign.fields) {
+    throw new Error("Cloudinary presign yok");
+  }
+  const form = new FormData();
+  for (const [key, value] of Object.entries(presign.fields)) {
+    form.append(key, value);
+  }
+  form.append("file", file);
+  const res = await fetch(presign.uploadUrl, { method: "POST", body: form });
+  if (!res.ok) throw new Error(`Cloudinary ${res.status}`);
+  const data = (await res.json()) as { secure_url?: string; url?: string };
+  const url = data.secure_url || data.url;
+  if (!url) throw new Error("Cloudinary yanıtında URL yok");
+  return url;
+}
+
+async function uploadPresignFallback(
   file: File,
   contentType: string,
   filename: string,
   folder: string,
-  presign: PresignResponse,
 ): Promise<string> {
-  const token = useAuthStore.getState().accessToken;
-
-  if (presign.cloudinary && presign.fields) {
-    try {
-      return await uploadCloudinaryDirect(file, presign);
-    } catch {
-      return uploadViaServer(file, folder);
-    }
+  const presign = await api.media.presign(filename, contentType, folder, "auto");
+  if (presign.cloudinary) {
+    return uploadCloudinaryPost(file, presign);
   }
-
-  if (presign.local) {
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch(presign.uploadUrl, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    });
-    if (!res.ok) throw new Error("Upload failed");
-    const data = (await res.json()) as { publicUrl: string };
-    return data.publicUrl;
+  if (presign.idrive) {
+    return uploadIdrivePut(file, presign, contentType);
   }
-
-  const res = await fetch(presign.uploadUrl, {
-    method: presign.method,
-    headers: { "Content-Type": contentType },
-    body: file,
-  });
-  if (!res.ok) throw new Error("Upload failed");
-  const url = presign.publicUrl;
-  if (!url) throw new Error("Upload failed");
-  return url;
+  throw new Error("Presign depolama yok");
 }
 
 export async function uploadFile(file: File, folder = "media"): Promise<string> {
   const { file: normalized, contentType, filename } = normalizeUploadMeta(file);
-  const presign = await api.media.presign(filename, contentType, folder);
-  return uploadWithPresign(normalized, contentType, filename, folder, presign);
+  try {
+    return await uploadViaServer(normalized, folder, "auto");
+  } catch {
+    /* API erişilemez veya 5xx */
+  }
+
+  try {
+    return await uploadPresignFallback(normalized, contentType, filename, folder);
+  } catch {
+    throw new Error(
+      "Dosya yüklenemedi. API deploy ve Cloudinary ayarlarını kontrol edin.",
+    );
+  }
 }

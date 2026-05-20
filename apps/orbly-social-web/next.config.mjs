@@ -28,7 +28,12 @@ function patternFromUrl(raw) {
 
 function buildImageRemotePatterns() {
   const patterns = [
-    { protocol: "https", hostname: "**" },
+    { protocol: "https", hostname: "**.idrivee2.com" },
+    { protocol: "https", hostname: "res.cloudinary.com" },
+    { protocol: "https", hostname: "**.cloudinary.com" },
+    { protocol: "https", hostname: "media.tenor.com" },
+    { protocol: "https", hostname: "**.giphy.com" },
+    { protocol: "https", hostname: "i.giphy.com" },
     { protocol: "http", hostname: "localhost" },
     { protocol: "http", hostname: "127.0.0.1" },
   ];
@@ -38,6 +43,8 @@ function buildImageRemotePatterns() {
   for (const raw of [
     process.env.NEXT_PUBLIC_API_URL,
     process.env.NEXT_PUBLIC_MEDIA_URL,
+    process.env.NEXT_PUBLIC_IDRIVE_PUBLIC_URL,
+    "https://s3.us-west-2.idrivee2.com",
   ]) {
     const pattern = patternFromUrl(raw);
     if (!pattern) continue;

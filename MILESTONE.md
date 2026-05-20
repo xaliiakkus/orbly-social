@@ -106,7 +106,10 @@ python -m compileall -q apps/api/app
 
 ## Sonraki aday işler (kısa)
 
-1. Bildirim **sunucu tarafı** toplulaştırma ve **socket** payload’ında liste ile aynı `postPreview` alanları.  
-2. Bildirim / gönderi satırında **repost** eyleminin tam kablolanması (web + mobile).  
-3. **`@orbly/db` / `@orbly/config`**: kullanıma alma veya repoda “referans / deprecated” olarak netleştirme.  
-4. CI’da yukarıdaki `tsc` + `compileall` adımlarının otomatik koşması.
+Güncel tamamlanan / eksik liste: **[task.md](./task.md)** (rewet, keşfet algoritması, compose, profil vb.).
+
+1. **Deploy** API (`/feed/explore`, rewet, refresh) — `task.md` E6.  
+2. Rewet kalanları: profil rewet sekmesi (**R2**), gerçek zamanlı sayaç (**R6**), R4–R9.  
+3. Keşfet: Haberler/Spor/Eğlence sekmeleri (**E1**), arama/geçmiş (**E2**).  
+4. Bildirim sunucu toplulaştırma + socket `postPreview` paritesi.  
+5. CI: `tsc` + `compileall` otomatik.

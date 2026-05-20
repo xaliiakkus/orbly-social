@@ -10,10 +10,15 @@ from app.models.user import User
 from app.schemas.common import PaginatedPosts
 from app.services.aggregation import aggregate_to_list
 from app.services.feed_ranking import (
+    build_explore_pipeline,
+    build_explore_trending_posts_pipeline,
     build_for_you_pipeline,
+    build_trending_hashtags_pipeline,
+    explore_since,
     for_you_since,
     load_interest_orbits,
     strip_ranking_fields,
+    trending_posts_since,
 )
 from app.services.posts import enrich_posts
 from app.services.redis_client import feed_get, redis_ok, trending_top
@@ -71,28 +76,35 @@ async def feed_for_you(
     cursor: str | None = None,
     limit: int = Query(20, ge=1, le=50),
 ):
-    """Keşif akışı: tüm gönderiler; ilgi alanı ve takip sıralamada yükselir."""
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
+    """Ana sayfa Sana özel: keşif skorlama (takip/ilgi alanı boost)."""
     lim = parse_limit(limit)
     skip = int(cursor) if cursor else 0
-    follows = await Follow.find(Follow.followerId == PydanticObjectId(user_id)).to_list()
-    following_ids = [f.followingId for f in follows]
-    orbit_ids = list(user.orbitIds or [])
-    orbits = await load_interest_orbits(orbit_ids)
-    orbit_slugs = [o.slug.lower() for o in orbits]
-    since = for_you_since()
-
+    _, following_ids, orbit_ids, orbit_slugs = await _load_user_feed_context(user_id)
     pipeline = build_for_you_pipeline(
         user_id=user_id,
         orbit_ids=orbit_ids,
         orbit_slugs=orbit_slugs,
         following_ids=following_ids,
-        since=since,
+        since=for_you_since(),
         skip=skip,
         limit=lim,
     )
+    return await _run_post_pipeline(pipeline, user_id, skip, lim)
+
+
+async def _load_user_feed_context(user_id: str):
+    user = await User.get(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    follows = await Follow.find(Follow.followerId == PydanticObjectId(user_id)).to_list()
+    following_ids = [f.followingId for f in follows]
+    orbit_ids = list(user.orbitIds or [])
+    orbits = await load_interest_orbits(orbit_ids)
+    orbit_slugs = [o.slug.lower() for o in orbits]
+    return user, following_ids, orbit_ids, orbit_slugs
+
+
+async def _run_post_pipeline(pipeline: list[dict], user_id: str, skip: int, lim: int) -> PaginatedPosts:
     results = await aggregate_to_list(Post, pipeline, length=lim + 1)
     posts = []
     for r in results:
@@ -101,10 +113,7 @@ async def feed_for_you(
 
     if not posts and skip == 0:
         fallback = (
-            await Post.find(
-                Post.isDeleted == False,
-                Post.replyToId == None,
-            )
+            await Post.find(Post.isDeleted == False, Post.replyToId == None)
             .sort(-Post.createdAt)
             .limit(lim + 1)
             .to_list()
@@ -120,23 +129,60 @@ async def feed_for_you(
     )
 
 
+@router.get("/explore", response_model=PaginatedPosts)
+async def feed_explore(
+    user_id: UserId,
+    cursor: str | None = None,
+    limit: int = Query(20, ge=1, le=50),
+    tab: str = Query("for-you", pattern="^(for-you|trending)$"),
+):
+    """
+    Keşfet gönderi akışı — takip etmese bile MongoDB skorlama ile sıralanır.
+    for-you: genel keşif; trending: son 48 saatte en çok yanıt alan gönderiler.
+    """
+    lim = parse_limit(limit)
+    skip = int(cursor) if cursor and cursor.isdigit() else 0
+
+    if tab == "trending":
+        pipeline = build_explore_trending_posts_pipeline(
+            since=trending_posts_since(),
+            skip=skip,
+            limit=lim,
+        )
+        return await _run_post_pipeline(pipeline, user_id, skip, lim)
+
+    _, following_ids, orbit_ids, orbit_slugs = await _load_user_feed_context(user_id)
+    pipeline = build_explore_pipeline(
+        user_id=user_id,
+        orbit_ids=orbit_ids,
+        orbit_slugs=orbit_slugs,
+        following_ids=following_ids,
+        since=explore_since(),
+        skip=skip,
+        limit=lim,
+    )
+    return await _run_post_pipeline(pipeline, user_id, skip, lim)
+
+
 @router.get("/trending")
 async def trending():
     if redis_ok():
-        rows = await trending_top(10)
+        rows = await trending_top(15)
         if rows:
             return {"data": [{"tag": tag, "count": int(score)} for tag, score in rows]}
 
-    since = datetime.utcnow() - timedelta(hours=24)
-    pipeline = [
-        {"$match": {"createdAt": {"$gte": since}, "isDeleted": False}},
-        {"$unwind": "$hashtags"},
-        {"$group": {"_id": "$hashtags", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 10},
-    ]
+    since = datetime.utcnow() - timedelta(hours=48)
+    pipeline = build_trending_hashtags_pipeline(since, limit=15)
     rows = await aggregate_to_list(Post, pipeline)
-    return {"data": [{"tag": r["_id"], "count": r["count"]} for r in rows]}
+    return {
+        "data": [
+            {
+                "tag": r["_id"],
+                "count": int(r.get("postCount", r.get("count", 0))),
+            }
+            for r in rows
+        ]
+    }
 
 
 @router.get("/hashtag/{tag}", response_model=PaginatedPosts)

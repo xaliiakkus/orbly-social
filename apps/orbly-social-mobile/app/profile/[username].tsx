@@ -1,5 +1,7 @@
 import { formatUserError } from "@orbly/api-client";
+import { useFollowToggle, useStartConversation } from "@orbly/features";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Alert } from "react-native";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -57,15 +59,34 @@ export default function UserProfileScreen() {
     enabled: !!u && tab === "broadcasts",
   });
 
-  const follow = useMutation({
-    mutationFn: (following: boolean) =>
-      following ? api.users.unfollow(profile.data!.user.id) : api.users.follow(profile.data!.user.id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["profile", u] }),
+  const startDm = useStartConversation();
+
+  const follow = useFollowToggle(u, {
+    onFeedback: (f) => {
+      if (f.type === "error") {
+        Alert.alert("Takip edilemedi", f.message);
+      }
+    },
   });
 
   const user = profile.data?.user;
   const isSelf = me?.username === u;
   const isFollowing = profile.data?.isFollowing ?? false;
+  const canMessage = profile.data?.canMessage ?? false;
+
+  const onMessage = () => {
+    if (!user || !canMessage) {
+      Alert.alert(
+        "Mesaj gönderilemiyor",
+        "Mesaj göndermek için ikinizin de birbirinizi takip etmesi gerekir.",
+      );
+      return;
+    }
+    startDm.mutate(user.id, {
+      onSuccess: ({ conversationId }) => router.push(`/messages/${conversationId}`),
+      onError: (err) => Alert.alert("Hata", formatUserError(err)),
+    });
+  };
   const postList = posts.data?.pages.flatMap((p) => p.data) ?? [];
 
   if (profile.isLoading) {
@@ -98,6 +119,9 @@ export default function UserProfileScreen() {
         onEditProfile={() => setEditOpen(true)}
         onBack={() => router.back()}
         onSettings={isSelf ? () => router.push("/settings") : undefined}
+        onMessage={isSelf ? undefined : onMessage}
+        canMessage={canMessage}
+        messagePending={startDm.isPending}
       />
       <XTabs tabs={PROFILE_TABS} active={tab} onChange={setTab} />
     </>

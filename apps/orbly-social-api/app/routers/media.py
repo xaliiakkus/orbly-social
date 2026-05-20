@@ -4,7 +4,7 @@ from app.commands.media_cmds import presign as presign_cmd
 from app.deps import UserId
 from app.schemas.media import PresignIn
 from app.services import media_storage
-from app.services.tenor import search_gifs
+from app.services.gif_search import search_gifs
 
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024
 _MAX_VIDEO_BYTES = 100 * 1024 * 1024
@@ -35,8 +35,11 @@ async def gifs(
 ):
     from app.config import settings
 
-    if not settings.tenor_api_key:
-        raise HTTPException(503, "GIF search is not configured (set TENOR_API_KEY)")
+    if not settings.tenor_api_key and not settings.giphy_api_key:
+        raise HTTPException(
+            503,
+            "GIF search is not configured (set TENOR_API_KEY and/or GIPHY_API_KEY)",
+        )
     try:
         data = await search_gifs(q, limit=limit)
     except Exception as exc:
@@ -49,8 +52,9 @@ async def upload_media(
     _user_id: UserId,
     file: UploadFile = File(...),
     folder: str = Query(default="media", max_length=50),
+    storage: str = Query(default="auto", pattern="^(auto|cloudinary|idrive)$"),
 ):
-    """Sunucu yüklemesi — Cloudinary + iDrive ikisi de ayarlıysa ikisine de yazar."""
+    """multipart/form-data ile sunucu yüklemesi ([FastAPI UploadFile](https://fastapi.tiangolo.com/tutorial/request-files/))."""
     ct = file.content_type or "application/octet-stream"
     if ct not in _ALLOWED_TYPES:
         raise HTTPException(400, f"Unsupported type: {ct}")
@@ -59,9 +63,16 @@ async def upload_media(
     if len(data) > limit:
         raise HTTPException(400, f"Max {limit // (1024 * 1024)}MB for this file type")
     name = file.filename or "upload.bin"
-    return await media_storage.upload_bytes(
-        data, filename=name, content_type=ct, folder=folder
-    )
+    try:
+        return await media_storage.upload_bytes(
+            data,
+            filename=name,
+            content_type=ct,
+            folder=folder,
+            storage=storage,  # type: ignore[arg-type]
+        )
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @router.post("/upload-local")

@@ -1,17 +1,24 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useEffect, useRef } from "react";
 
 import { api, withoutUnauthorizedLogout } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { useDeviceAccountsStore } from "@/lib/device-accounts-store";
 import { registerSessionTokenSync } from "@/lib/session-token-sync";
-import { disconnectSocket, getSocket } from "@/lib/socket";
+import {
+  applyAuthTokens,
+  startProactiveRefresh,
+  stopProactiveRefresh,
+} from "@/lib/token-manager";
+import { disconnectSocket, getSocket, reconnectSocket } from "@/lib/socket";
 import type { UserPublic } from "@orbly/types";
 
+/** NextAuth oturumunu store + socket ile hizala. Çıkış yalnızca kullanıcı veya refresh token ölünce. */
 export function SessionSync() {
   const { data: session, status, update } = useSession();
+  const bootstrappedToken = useRef<string | null>(null);
 
   useEffect(() => {
     registerSessionTokenSync((payload) => {
@@ -26,113 +33,88 @@ export function SessionSync() {
 
   useEffect(() => {
     if (status === "loading") return;
-    getSocket(session?.accessToken ?? null);
-  }, [session?.accessToken, status]);
 
-  useEffect(() => {
-    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      bootstrappedToken.current = null;
+      stopProactiveRefresh();
+      useAuthStore.getState().logout();
+      disconnectSocket();
+      useAuthStore.getState().setHydrated(true);
+      return;
+    }
 
-    let cancelled = false;
+    if (!session?.accessToken || !session.orblyUser) {
+      useAuthStore.getState().setHydrated(true);
+      return;
+    }
 
-    async function sync() {
-      const store = useAuthStore.getState();
-      store.setHydrated(false);
+    const accessToken = session.accessToken;
+    if (bootstrappedToken.current === accessToken && useAuthStore.getState().hydrated) {
+      getSocket(accessToken);
+      return;
+    }
 
-      if (
-        session?.error === "RefreshAccessTokenError" ||
-        !session?.accessToken ||
-        !session.orblyUser
-      ) {
-        store.logout();
-        disconnectSocket();
-        await signOut({ callbackUrl: "/login" });
-        if (!cancelled) store.setHydrated(true);
-        return;
-      }
+    const user = session.orblyUser as unknown as UserPublic;
+    const expiresAt =
+      (session.accessExpiresAt as number | undefined) ??
+      Date.now() + 15 * 60 * 1000;
 
-      const user = session.orblyUser as unknown as UserPublic;
+    if (useDeviceAccountsStore.getState().wouldExceedLimit(user.id)) {
+      sessionStorage.setItem("orbly-account-limit-error", "1");
+      window.location.href = "/login?error=account_limit";
+      return;
+    }
 
-      if (useDeviceAccountsStore.getState().wouldExceedLimit(user.id)) {
-        sessionStorage.setItem("orbly-account-limit-error", "1");
-        store.logout();
-        disconnectSocket();
-        await signOut({ redirect: false });
-        if (!cancelled) {
-          store.setHydrated(true);
-          window.location.href = "/login?error=account_limit";
-        }
-        return;
-      }
+    applyAuthTokens({
+      user,
+      tokens: {
+        accessToken,
+        refreshToken: session.refreshToken ?? "",
+        expiresIn: Math.max(60, Math.floor((expiresAt - Date.now()) / 1000)),
+      },
+    });
 
-      store.setAuth({
-        user,
-        tokens: {
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken ?? "",
-          expiresIn: 900,
-        },
+    bootstrappedToken.current = accessToken;
+    reconnectSocket(accessToken);
+
+    startProactiveRefresh((payload) => {
+      void update({
+        accessToken: payload.tokens.accessToken,
+        refreshToken: payload.tokens.refreshToken,
+        orblyUser: payload.user,
+        accessExpiresAt: Date.now() + payload.tokens.expiresIn * 1000,
       });
+      reconnectSocket(payload.tokens.accessToken);
+    });
 
-      let freshUser = user;
+    void withoutUnauthorizedLogout(async () => {
       try {
-        await withoutUnauthorizedLogout(async () => {
-          const fresh = await api.auth.me();
-          freshUser = fresh.user;
-          if (!cancelled) store.setUser(fresh.user);
-        });
-      } catch {
-        const refreshToken = session.refreshToken;
-        if (refreshToken) {
-          try {
-            const refreshed = await withoutUnauthorizedLogout(() =>
-              api.auth.refresh(refreshToken),
-            );
-            if (cancelled) return;
-            store.setAuth(refreshed);
-            freshUser = refreshed.user;
-            await update({
-              accessToken: refreshed.tokens.accessToken,
-              refreshToken: refreshed.tokens.refreshToken,
-              orblyUser: refreshed.user,
-              accessExpiresAt: Date.now() + refreshed.tokens.expiresIn * 1000,
-            });
-            const fresh = await withoutUnauthorizedLogout(() => api.auth.me());
-            freshUser = fresh.user;
-            if (!cancelled) store.setUser(fresh.user);
-          } catch {
-            store.logout();
-            disconnectSocket();
-            await signOut({ callbackUrl: "/login" });
-            if (!cancelled) store.setHydrated(true);
-            return;
-          }
-        }
-      }
-
-      if (!cancelled) {
+        const fresh = await api.auth.me();
+        useAuthStore.getState().setUser(fresh.user);
         useDeviceAccountsStore.getState().upsertAccount({
-          userId: freshUser.id,
-          user: freshUser,
-          accessToken: useAuthStore.getState().accessToken ?? session.accessToken,
+          userId: fresh.user.id,
+          user: fresh.user,
+          accessToken: useAuthStore.getState().accessToken ?? accessToken,
           refreshToken:
             useAuthStore.getState().refreshToken ?? session.refreshToken ?? "",
           savedAt: new Date().toISOString(),
         });
-        sessionStorage.removeItem("orbly-add-account");
-        sessionStorage.removeItem("orbly-add-account-return-user-id");
+      } catch {
+        /* Ağ/API geçici — oturumu koru */
       }
+    });
 
-      if (!cancelled) {
-        store.setHydrated(true);
-        getSocket(useAuthStore.getState().accessToken);
-      }
-    }
+    useAuthStore.getState().setHydrated(true);
+  }, [
+    session?.accessToken,
+    session?.refreshToken,
+    session?.orblyUser,
+    session?.accessExpiresAt,
+    status,
+    update,
+  ]);
 
-    void sync();
-    return () => {
-      cancelled = true;
-    };
-  }, [session, status, update]);
+  useEffect(() => () => stopProactiveRefresh(), []);
 
   return null;
 }

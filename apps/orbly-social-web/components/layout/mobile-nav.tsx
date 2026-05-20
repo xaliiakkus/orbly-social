@@ -4,6 +4,7 @@ import { Bell, Home, Mail, Radio, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { NotificationNavBadge } from "@/components/notifications/notification-nav-badge";
 import { cn } from "@/lib/cn";
 
 /** X mobil web alt çubuğu: 5 eşit ikon, ortada FAB yok */
@@ -37,13 +38,16 @@ export function MobileNav() {
               aria-label={label}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "p-2.5 text-text-secondary transition-colors",
+                "relative p-2.5 text-text-secondary transition-colors",
                 active && "text-text-primary",
               )}
             >
               <Icon
                 className={cn("h-[26px] w-[26px]", active && "stroke-[2.5]")}
               />
+              {href === "/notifications" ? (
+                <NotificationNavBadge className="top-1 left-[calc(50%+8px)]" />
+              ) : null}
             </Link>
           );
         })}

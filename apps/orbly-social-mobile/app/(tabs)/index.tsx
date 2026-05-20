@@ -1,12 +1,13 @@
 import { SOCKET_EVENTS, type FeedMode } from "@orbly/features";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { PostPublic } from "@orbly/types";
 
 import { ComposeFab } from "@/components/ComposeFab";
 import { OrblyLogo } from "@/components/OrblyLogo";
-import { ComposePrompt } from "@/components/ComposePrompt";
 import { FeedList } from "@/components/FeedList";
 import { MenuDrawer } from "@/components/MenuDrawer";
 import { SpacesBanner } from "@/components/SpacesBanner";
@@ -24,11 +25,13 @@ const FEED_TABS = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const qc = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<FeedMode>("for-you");
   const [feedBanner, setFeedBanner] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
+  const feedRef = useRef<FlatList<PostPublic>>(null);
 
   useEffect(() => {
     const token = useAuthStore.getState().accessToken;
@@ -42,6 +45,18 @@ export default function HomeScreen() {
   }, []);
 
   const dismissBanner = useCallback(() => setFeedBanner(false), []);
+
+  const onPostPublished = useCallback(() => {
+    setComposeOpen(false);
+    setFeedBanner(false);
+    feedRef.current?.scrollToOffset({ offset: 0, animated: true });
+    void qc.invalidateQueries({ queryKey: ["feed"] });
+  }, [qc]);
+
+  const openCompose = useCallback(() => {
+    setComposeOpen(true);
+    feedRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -62,9 +77,9 @@ export default function HomeScreen() {
       </View>
 
       <XTabs tabs={FEED_TABS} active={tab} onChange={setTab} />
-      <ComposePrompt onPress={() => setComposeOpen(true)} />
 
       <FeedList
+        ref={feedRef}
         key={tab}
         mode={tab}
         feedBanner={feedBanner}
@@ -72,7 +87,12 @@ export default function HomeScreen() {
         ListHeaderComponent={<SpacesBanner />}
       />
 
-      <ComposeFab open={composeOpen} onOpenChange={setComposeOpen} />
+      <ComposeFab
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        onPosted={onPostPublished}
+        onPressFab={openCompose}
+      />
       <MenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </View>
   );

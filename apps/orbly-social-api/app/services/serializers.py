@@ -82,6 +82,9 @@ def post_out(
     *,
     liked_by_me: bool | None = None,
     bookmarked_by_me: bool | None = None,
+    repost_of: PostOut | None = None,
+    reposted_by_me: bool | None = None,
+    my_repost_id: str | None = None,
     viewer_id: str | None = None,
 ) -> PostOut:
     return PostOut(
@@ -93,6 +96,7 @@ def post_out(
         liveBroadcastId=str(post.liveBroadcastId) if post.liveBroadcastId else None,
         replyToId=str(post.replyToId) if post.replyToId else None,
         repostOfId=str(post.repostOfId) if post.repostOfId else None,
+        repostOf=repost_of,
         hashtags=post.hashtags or [],
         poll=poll_out(post, viewer_id),
         stats=PostStatsOut(
@@ -104,6 +108,8 @@ def post_out(
         ),
         likedByMe=liked_by_me,
         bookmarkedByMe=bookmarked_by_me,
+        repostedByMe=reposted_by_me,
+        myRepostId=my_repost_id,
         createdAt=_ts(post),
         updatedAt=_ts(post, "updatedAt"),
     )

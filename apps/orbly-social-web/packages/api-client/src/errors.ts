@@ -6,7 +6,8 @@ const EXACT_MESSAGES: Record<string, string> = {
   "User not found": "Kullanıcı bulunamadı.",
   "Invalid refresh token": "Oturumun süresi doldu. Lütfen tekrar giriş yap.",
   "Invalid Google token": "Google ile giriş başarısız. Tekrar dene.",
-  "GIF search is not configured (set TENOR_API_KEY)": "GIF araması şu an kapalı.",
+  "GIF search is not configured (set TENOR_API_KEY and/or GIPHY_API_KEY)":
+    "GIF araması şu an kapalı.",
   "GIF provider error": "GIF araması geçici olarak kullanılamıyor.",
   "Canlı yayın şu an kullanılamıyor": "Canlı yayın şu an kullanılamıyor.",
   "Canlı yayın başlatılamadı": "Canlı yayın başlatılamadı. Biraz sonra tekrar dene.",
@@ -15,13 +16,18 @@ const EXACT_MESSAGES: Record<string, string> = {
   "Mesaj boş olamaz": "Bir mesaj yaz.",
   "Mesaj çok uzun": "Mesaj çok uzun.",
   Forbidden: "Bu işlem için yetkin yok.",
+  "Mutual follow required for direct messages":
+    "Mesaj göndermek için karşılıklı takip gerekir.",
   "Post not found": "Gönderi bulunamadı.",
   "Reposts cannot be edited": "Yeniden paylaşımlar düzenlenemez.",
   "Max 4 images": "En fazla 4 görsel ekleyebilirsin.",
+  "Cannot follow yourself": "Kendi hesabını takip edemezsin.",
+  "userId required": "İşlem tamamlanamadı. Sayfayı yenileyip tekrar dene.",
+  profile: "Profil yüklenemedi. Sayfayı yenileyip tekrar dene.",
 };
 
 const DEV_PATTERNS =
-  /LIVEKIT|\.env|pip install|uvicorn|API key|API_SECRET|mongodb:|localhost:\d|Internal server error|Request failed|Socket RPC|xhr poll|ECONNREFUSED|ENOTFOUND|Network request failed/i;
+  /LIVEKIT|\.env|pip install|uvicorn|API key|API_SECRET|mongodb:|localhost:\d|Internal server error|Request failed|Socket RPC|xhr poll|ECONNREFUSED|ENOTFOUND|Network request failed|RpcError|TypeError|undefined is not|Cannot read propert/i;
 
 const SOCKET_FRIENDLY: Record<string, string> = {
   timeout: "Sunucuya ulaşılamadı. Biraz sonra tekrar dene.",
@@ -116,6 +122,7 @@ export function formatUserError(error: unknown): string {
   }
   if (error instanceof Error) {
     const msg = error.message?.trim() ?? "";
+    if (msg && EXACT_MESSAGES[msg]) return EXACT_MESSAGES[msg];
     if (msg && SOCKET_FRIENDLY[msg]) return SOCKET_FRIENDLY[msg];
     if (msg && DEV_PATTERNS.test(msg)) return messageFromStatus(0);
     if (msg && /[çğıöşüÇĞİÖŞÜ]/.test(msg) && msg.length <= 200) return msg;

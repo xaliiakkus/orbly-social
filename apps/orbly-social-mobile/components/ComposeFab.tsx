@@ -10,9 +10,16 @@ import { TAB_BAR_HEIGHT } from "@/constants/layout";
 type Props = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onPosted?: () => void;
+  onPressFab?: () => void;
 };
 
-export function ComposeFab({ open: controlledOpen, onOpenChange }: Props = {}) {
+export function ComposeFab({
+  open: controlledOpen,
+  onOpenChange,
+  onPosted,
+  onPressFab,
+}: Props = {}) {
   const insets = useSafeAreaInsets();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -25,13 +32,20 @@ export function ComposeFab({ open: controlledOpen, onOpenChange }: Props = {}) {
     <>
       <Pressable
         style={[styles.fab, { bottom: TAB_BAR_HEIGHT + insets.bottom + 12 }]}
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          onPressFab?.();
+          setOpen(true);
+        }}
         accessibilityLabel="Gönderi oluştur"
       >
         <FontAwesome name="plus" size={26} color="#fff" />
       </Pressable>
 
-      <ComposeModal visible={open} onClose={() => setOpen(false)} />
+      <ComposeModal
+        visible={open}
+        onClose={() => setOpen(false)}
+        onPosted={onPosted}
+      />
     </>
   );
 }

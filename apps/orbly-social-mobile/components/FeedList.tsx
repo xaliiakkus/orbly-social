@@ -1,6 +1,7 @@
 import { formatUserError } from "@orbly/api-client";
 import { useFeed, type FeedMode } from "@orbly/features";
 import type { ReactNode } from "react";
+import { forwardRef } from "react";
 import {
   FlatList,
   Pressable,
@@ -8,6 +9,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type FlatList as FlatListType,
 } from "react-native";
 
 import { EmptyState } from "@/components/EmptyState";
@@ -16,17 +18,17 @@ import { PostCard } from "@/components/PostCard";
 import { OrblyColors } from "@/constants/Colors";
 import type { PostPublic } from "@orbly/types";
 
-export function FeedList({
-  mode,
-  feedBanner,
-  onRefreshBanner,
-  ListHeaderComponent,
-}: {
+type Props = {
   mode: FeedMode;
   feedBanner?: boolean;
   onRefreshBanner?: () => void;
   ListHeaderComponent?: ReactNode;
-}) {
+};
+
+export const FeedList = forwardRef<FlatListType<PostPublic>, Props>(function FeedList(
+  { mode, feedBanner, onRefreshBanner, ListHeaderComponent },
+  ref,
+) {
   const query = useFeed(mode);
   const posts: PostPublic[] = query.data?.pages.flatMap((p) => p.data) ?? [];
 
@@ -69,6 +71,7 @@ export function FeedList({
 
   return (
     <FlatList
+      ref={ref}
       style={styles.flex}
       data={posts}
       keyExtractor={(p) => p.id}
@@ -116,16 +119,18 @@ export function FeedList({
       contentContainerStyle={posts.length === 0 ? styles.emptyGrow : { paddingBottom: 100 }}
     />
   );
-}
+});
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  banner: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: OrblyColors.accent,
-    paddingVertical: 12,
-  },
-  bannerText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   emptyGrow: { flexGrow: 1 },
+  banner: {
+    backgroundColor: OrblyColors.accent,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 10,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  bannerText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 });

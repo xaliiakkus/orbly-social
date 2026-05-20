@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from beanie import PydanticObjectId
+
+logger = logging.getLogger(__name__)
 
 from app.commands.json_util import to_jsonable
 from app.commands.registry import action
 from app.errors import AppError
 from app.models.follow import Follow
-from app.models.notification import Notification
 from app.models.user import User
+from app.services.notifications import notify_user
 from app.schemas.users import UpdateProfileIn
 from app.services.realtime_broadcast import broadcast_user_action
 from app.services.serializers import user_out
@@ -44,7 +47,10 @@ async def follow(user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
     await Follow(followerId=oid, followingId=tid).insert()
     await User.find_one(User.id == oid).update({"$inc": {"stats.followingCount": 1}})
     await User.find_one(User.id == tid).update({"$inc": {"stats.followersCount": 1}})
-    await Notification(userId=tid, actorId=oid, type="follow").insert()
+    try:
+        await notify_user(str(tid), user_id, "follow")
+    except Exception:
+        logger.exception("follow notification failed target=%s", target_id)
     actor = await User.get(user_id)
     await broadcast_user_action(
         target_id,

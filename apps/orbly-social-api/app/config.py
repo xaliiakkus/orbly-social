@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     idrive_region: str = Field(default="us-west-2", validation_alias="IDRIVE_REGION")
 
     media_local_fallback: bool = Field(default=True, validation_alias="MEDIA_LOCAL_FALLBACK")
+    # false = resimler Cloudinary (hızlı CDN); true = resim presign iDrive (yavaş)
+    media_prefer_idrive_for_images: bool = Field(
+        default=False, validation_alias="MEDIA_PREFER_IDRIVE_FOR_IMAGES"
+    )
 
     cloudinary_cloud_name: str | None = Field(default=None, validation_alias="CLOUDINARY_CLOUD_NAME")
     cloudinary_api_key: str | None = Field(default=None, validation_alias="CLOUDINARY_API_KEY")
@@ -110,6 +114,7 @@ class Settings(BaseSettings):
     google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")
     apple_client_id: str | None = Field(default=None, validation_alias="APPLE_CLIENT_ID")
     tenor_api_key: str | None = Field(default=None, validation_alias="TENOR_API_KEY")
+    giphy_api_key: str | None = Field(default=None, validation_alias="GIPHY_API_KEY")
 
     api_public_url: str = Field(default="http://localhost:4000", validation_alias="API_PUBLIC_URL")
     socket_path: str = Field(default="/socket.io", validation_alias="SOCKET_PATH")

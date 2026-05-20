@@ -5,10 +5,11 @@ from app.models.follow import Follow
 from app.models.live_channel import LiveChannel
 from app.models.post import Post
 from app.models.user import User
-from app.commands.users_cmds import update_me
+from app.commands.users_cmds import follow as follow_user, unfollow as unfollow_user, update_me
 from app.schemas.common import PaginatedPosts, PaginatedUsers
 from app.schemas.users import UpdateProfileIn
 from app.services.posts import enrich_posts
+from app.services.follow_checks import is_mutual_follow, viewer_follows
 from app.services.serializers import user_out
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
@@ -29,21 +30,37 @@ async def patch_me(user_id: UserId, body: UpdateProfileIn):
     return await update_me(user_id, body.model_dump(exclude_unset=True))
 
 
+@router.post("/me/following/{target_id}")
+async def rest_follow(user_id: UserId, target_id: str):
+    """Socket RPC yedek — mobil/web takip."""
+    return await follow_user(user_id, {"userId": target_id})
+
+
+@router.delete("/me/following/{target_id}")
+async def rest_unfollow(user_id: UserId, target_id: str):
+    return await unfollow_user(user_id, {"userId": target_id})
+
+
 @router.get("/{username}")
 async def get_user(username: str, viewer_id: OptionalUserId = None):
     user = await User.find_one(User.username == username.lower(), User.isBanned == False)
     if not user:
         raise HTTPException(404, "User not found")
+    is_self = viewer_id == str(user.id)
     is_following = False
-    if viewer_id:
-        is_following = await Follow.find_one(
-            Follow.followerId == PydanticObjectId(viewer_id),
-            Follow.followingId == user.id,
-        ) is not None
+    is_followed_by = False
+    if viewer_id and not is_self:
+        is_following = await viewer_follows(viewer_id, str(user.id))
+        is_followed_by = await viewer_follows(str(user.id), viewer_id)
+    can_message = is_self or (
+        bool(viewer_id) and await is_mutual_follow(viewer_id, str(user.id))
+    )
     return {
         "user": user_out(user),
         "isFollowing": is_following,
-        "isSelf": viewer_id == str(user.id),
+        "isFollowedBy": is_followed_by,
+        "canMessage": can_message,
+        "isSelf": is_self,
     }
 
 

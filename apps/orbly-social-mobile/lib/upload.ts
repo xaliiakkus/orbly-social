@@ -37,23 +37,12 @@ function normalizeName(name: string, type: string): string {
   return name || "photo.jpg";
 }
 
-/** React Native multipart — Content-Type header elle verilmemeli. */
 function formFile(uri: string, name: string, type: string) {
   return {
     uri: Platform.OS === "ios" ? uri.replace("file://", "") : uri,
     name,
     type,
   } as unknown as Blob;
-}
-
-function parseCloudinaryError(raw: string): string {
-  try {
-    const body = JSON.parse(raw) as { error?: { message?: string } };
-    if (body.error?.message) return body.error.message;
-  } catch {
-    /* ignore */
-  }
-  return "Dosya yüklenemedi. Tekrar dene.";
 }
 
 async function uploadViaServer(
@@ -65,75 +54,46 @@ async function uploadViaServer(
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append("file", formFile(uri, filename, contentType));
-  const base = getApiBaseUrl();
-  const res = await fetch(
-    `${base}/v1/media/upload?folder=${encodeURIComponent(folder)}`,
-    {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    },
-  );
+  const params = new URLSearchParams({ folder, storage: "auto" });
+  const res = await fetch(`${getApiBaseUrl()}/v1/media/upload?${params}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
   if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
   const data = (await res.json()) as { publicUrl: string };
   return resolveApiUrl(data.publicUrl);
 }
 
-async function uploadWithPresign(
+async function uploadIdrivePut(
+  uri: string,
+  contentType: string,
+  presign: PresignResponse,
+): Promise<string> {
+  const fileRes = await fetch(uri);
+  if (!fileRes.ok) throw new Error("Dosya okunamadı.");
+  const blob = await fileRes.blob();
+  const res = await fetch(resolveApiUrl(presign.uploadUrl), {
+    method: presign.method || "PUT",
+    headers: { "Content-Type": contentType },
+    body: blob,
+  });
+  if (!res.ok) throw new Error("iDrive yükleme başarısız");
+  if (!presign.publicUrl) throw new Error("iDrive public URL yok");
+  return resolveApiUrl(presign.publicUrl);
+}
+
+async function uploadPresignFallback(
   uri: string,
   filename: string,
   contentType: string,
   folder: string,
-  presign: PresignResponse,
 ): Promise<string> {
-  const token = useAuthStore.getState().accessToken;
-  const uploadUrl = resolveApiUrl(presign.uploadUrl);
-
-  if (presign.cloudinary && presign.fields) {
-    try {
-      const form = new FormData();
-      for (const [key, value] of Object.entries(presign.fields)) {
-        form.append(key, String(value));
-      }
-      form.append("file", formFile(uri, filename, contentType));
-      const res = await fetch(uploadUrl, { method: "POST", body: form });
-      const raw = await res.text();
-      if (!res.ok) throw new Error(parseCloudinaryError(raw));
-      const data = JSON.parse(raw) as { secure_url?: string; url?: string };
-      const url = data.secure_url ?? data.url;
-      if (!url) throw new Error("Dosya yüklenemedi. Tekrar dene.");
-      return url;
-    } catch {
-      return uploadViaServer(uri, filename, contentType, folder);
-    }
+  const presign = await api.media.presign(filename, contentType, folder, "auto");
+  if (presign.idrive) {
+    return uploadIdrivePut(uri, contentType, presign);
   }
-
-  if (presign.local) {
-    const form = new FormData();
-    form.append("file", formFile(uri, filename, contentType));
-    const res = await fetch(uploadUrl, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    });
-    if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
-    const data = (await res.json()) as { publicUrl: string };
-    return resolveApiUrl(data.publicUrl);
-  }
-
-  const fileRes = await fetch(uri);
-  if (!fileRes.ok) throw new Error("Dosya okunamadı.");
-  const blob = await fileRes.blob();
-
-  const res = await fetch(uploadUrl, {
-    method: presign.method,
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
-  if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
-
-  if (!presign.publicUrl) throw new Error("Dosya yüklenemedi. Tekrar dene.");
-  return resolveApiUrl(presign.publicUrl);
+  throw new Error("Presign depolama yok");
 }
 
 export async function uploadImage(
@@ -144,6 +104,9 @@ export async function uploadImage(
 ): Promise<string> {
   const contentType = normalizeType(name, type);
   const filename = normalizeName(name, contentType);
-  const presign = await api.media.presign(filename, contentType, folder);
-  return uploadWithPresign(uri, filename, contentType, folder, presign);
+  try {
+    return await uploadViaServer(uri, filename, contentType, folder);
+  } catch {
+    return uploadPresignFallback(uri, filename, contentType, folder);
+  }
 }

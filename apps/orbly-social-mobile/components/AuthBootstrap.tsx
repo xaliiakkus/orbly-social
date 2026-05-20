@@ -4,10 +4,10 @@ import { api, withoutUnauthorizedLogout } from "@/lib/api";
 import { reconnectSocket } from "@/lib/socket";
 import { syncCurrentAccountToDevice } from "@/lib/sync-saved-account";
 import { useAuthStore } from "@/lib/auth-store";
+import { startProactiveRefresh, stopProactiveRefresh } from "@/lib/token-manager";
 
-/** Uygulama açılışında kayıtlı hesabı senkronize et ve token'ı yenile. */
 export function AuthBootstrap() {
-  const token = useAuthStore((s) => s.accessToken);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
   const hydrated = useAuthStore((s) => s.hydrated);
 
   useEffect(() => {
@@ -20,34 +20,26 @@ export function AuthBootstrap() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!hydrated || !refreshToken) {
+      stopProactiveRefresh();
+      return;
+    }
+
     reconnectSocket();
-    void syncCurrentAccountToDevice();
-  }, [token]);
+    startProactiveRefresh();
 
-  useEffect(() => {
-    if (!hydrated) return;
-    const { refreshToken } = useAuthStore.getState();
-    if (!refreshToken) return;
-
-    let cancelled = false;
-
-    void (async () => {
+    void withoutUnauthorizedLogout(async () => {
       try {
-        await withoutUnauthorizedLogout(async () => {
-          const { user } = await api.auth.me();
-          if (!cancelled) useAuthStore.getState().setUser(user);
-        });
+        const { user } = await api.auth.me();
+        useAuthStore.getState().setUser(user);
       } catch {
-        /* refresh veya logout api istemcisi tarafından yapılır */
+        /* geçici hata — çıkış yok */
       }
-      if (!cancelled) void syncCurrentAccountToDevice();
-    })();
+      void syncCurrentAccountToDevice();
+    });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [hydrated]);
+    return () => stopProactiveRefresh();
+  }, [hydrated, refreshToken]);
 
   return null;
 }
