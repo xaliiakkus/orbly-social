@@ -13,6 +13,7 @@ from app.utils import parse_limit
 router = APIRouter()
 
 
+@router.get("")
 @router.get("/")
 async def list_notifications(
     user_id: UserId,

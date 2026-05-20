@@ -1,6 +1,7 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { ApiError } from "@orbly/api-client";
+import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
 
 import { api, withoutUnauthorizedLogout } from "@/lib/api";
@@ -9,10 +10,12 @@ import { useDeviceAccountsStore } from "@/lib/device-accounts-store";
 import { registerSessionTokenSync } from "@/lib/session-token-sync";
 import {
   applyAuthTokens,
+  needsAccessRefresh,
+  refreshTokensSilently,
   startProactiveRefresh,
   stopProactiveRefresh,
 } from "@/lib/token-manager";
-import { disconnectSocket, getSocket, reconnectSocket } from "@/lib/socket";
+import { disconnectSocket, reconnectSocket } from "@/lib/socket";
 import type { UserPublic } from "@orbly/types";
 
 /** NextAuth oturumunu store + socket ile hizala. Çıkış yalnızca kullanıcı veya refresh token ölünce. */
@@ -50,7 +53,22 @@ export function SessionSync() {
 
     const accessToken = session.accessToken;
     if (bootstrappedToken.current === accessToken && useAuthStore.getState().hydrated) {
-      getSocket(accessToken);
+      if (needsAccessRefresh()) {
+        void refreshTokensSilently().then((payload) => {
+          if (payload) {
+            bootstrappedToken.current = payload.tokens.accessToken;
+            void update({
+              accessToken: payload.tokens.accessToken,
+              refreshToken: payload.tokens.refreshToken,
+              orblyUser: payload.user,
+              accessExpiresAt: Date.now() + payload.tokens.expiresIn * 1000,
+            });
+            reconnectSocket(payload.tokens.accessToken);
+          }
+        });
+      } else {
+        reconnectSocket(accessToken);
+      }
       return;
     }
 
@@ -88,6 +106,18 @@ export function SessionSync() {
     });
 
     void withoutUnauthorizedLogout(async () => {
+      if (needsAccessRefresh()) {
+        const payload = await refreshTokensSilently();
+        if (payload) {
+          bootstrappedToken.current = payload.tokens.accessToken;
+          void update({
+            accessToken: payload.tokens.accessToken,
+            refreshToken: payload.tokens.refreshToken,
+            orblyUser: payload.user,
+            accessExpiresAt: Date.now() + payload.tokens.expiresIn * 1000,
+          });
+        }
+      }
       try {
         const fresh = await api.auth.me();
         useAuthStore.getState().setUser(fresh.user);
@@ -99,8 +129,10 @@ export function SessionSync() {
             useAuthStore.getState().refreshToken ?? session.refreshToken ?? "",
           savedAt: new Date().toISOString(),
         });
-      } catch {
-        /* Ağ/API geçici — oturumu koru */
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          await signOut({ callbackUrl: "/login?error=session_expired" });
+        }
       }
     });
 

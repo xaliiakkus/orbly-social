@@ -2,7 +2,7 @@ import { createApiClient, socketRpc } from "@orbly/api-client";
 
 import { getApiBaseUrl } from "@/lib/api-url";
 import { useAuthStore } from "./auth-store";
-import { applyAuthTokens, refreshTokensSilently } from "./token-manager";
+import { applyAuthTokens, needsAccessRefresh, refreshTokensSilently } from "./token-manager";
 import { disconnectSocket, getSocket } from "./socket";
 
 /** Geçersiz token ile socket reddedilir; giriş RPC'leri anonim bağlantı kullanmalı. */
@@ -29,6 +29,11 @@ export const api = createApiClient({
   baseUrl: getApiBaseUrl(),
   getAccessToken: () => useAuthStore.getState().accessToken,
   getRefreshToken: () => useAuthStore.getState().refreshToken,
+  prepareAuth: async () => {
+    if (needsAccessRefresh()) {
+      await refreshTokensSilently();
+    }
+  },
   onTokensRefreshed: (payload) => {
     applyAuthTokens(payload);
     reconnectSocket();

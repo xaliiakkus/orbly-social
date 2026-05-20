@@ -119,6 +119,17 @@ class Settings(BaseSettings):
     api_public_url: str = Field(default="http://localhost:4000", validation_alias="API_PUBLIC_URL")
     socket_path: str = Field(default="/socket.io", validation_alias="SOCKET_PATH")
 
+    @field_validator("api_public_url", mode="after")
+    @classmethod
+    def _api_public_url_https(cls, v: str, info) -> str:
+        u = v.rstrip("/")
+        node_env = info.data.get("node_env", "development")
+        if node_env == "production" and u.startswith("http://"):
+            host = u[7:].split("/")[0].lower()
+            if host not in ("localhost", "127.0.0.1"):
+                u = "https://" + u[7:]
+        return u
+
     livekit_url: str = Field(default="", validation_alias="LIVEKIT_URL")
     livekit_api_key: str = Field(default="", validation_alias="LIVEKIT_API_KEY")
     livekit_api_secret: str = Field(default="", validation_alias="LIVEKIT_API_SECRET")

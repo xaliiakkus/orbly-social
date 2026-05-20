@@ -11,6 +11,7 @@ from app.utils import parse_limit
 router = APIRouter()
 
 
+@router.get("", response_model=PaginatedPosts)
 @router.get("/", response_model=PaginatedPosts)
 async def list_bookmarks(
     user_id: UserId,

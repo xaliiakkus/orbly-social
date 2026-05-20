@@ -92,6 +92,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    redirect_slashes=False,
 )
 
 @app.exception_handler(AppError)

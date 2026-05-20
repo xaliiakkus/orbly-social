@@ -10,6 +10,7 @@ from app.utils import parse_limit
 router = APIRouter()
 
 
+@router.get("")
 @router.get("/")
 async def search(
     q: str = Query(min_length=1, max_length=100),

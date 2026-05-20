@@ -6,6 +6,7 @@ import { notifySessionTokensRefreshed } from "./session-token-sync";
 import {
   applyAuthTokens,
   ensureFreshAccessToken,
+  needsAccessRefresh,
   refreshTokensSilently,
 } from "./token-manager";
 import { getSocket, reconnectSocket } from "./socket";
@@ -29,6 +30,11 @@ export const api = createApiClient({
   baseUrl,
   getAccessToken: () => useAuthStore.getState().accessToken,
   getRefreshToken: () => useAuthStore.getState().refreshToken,
+  prepareAuth: async () => {
+    if (needsAccessRefresh()) {
+      await refreshTokensSilently();
+    }
+  },
   onTokensRefreshed: (payload) => {
     applyAuthTokens(payload);
     notifySessionTokensRefreshed(payload);

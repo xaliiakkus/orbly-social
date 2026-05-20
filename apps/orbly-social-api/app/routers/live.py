@@ -12,6 +12,7 @@ from app.services.serializers import user_out
 router = APIRouter()
 
 
+@router.get("")
 @router.get("/")
 async def list_live(
     limit: int = Query(20, ge=1, le=50),

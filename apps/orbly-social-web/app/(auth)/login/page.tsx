@@ -191,6 +191,8 @@ function LoginForm() {
       setError(
         "Giriş servisi yapılandırılmamış. Yöneticiyle iletişime geç veya daha sonra tekrar dene.",
       );
+    } else if (authError === "session_expired") {
+      setError("Oturumun sona erdi. Lütfen tekrar giriş yap.");
     } else if (authError) {
       setError("Giriş başarısız. Lütfen tekrar deneyin.");
     }

@@ -30,6 +30,7 @@ export interface ApiClientOptions {
   baseUrl: string;
   getAccessToken?: () => string | null;
   getRefreshToken?: () => string | null;
+  prepareAuth?: () => Promise<void>;
   onTokensRefreshed?: (payload: AuthResponse) => void;
   onUnauthorized?: () => void;
   /** Socket RPC for all mutations (POST/PUT/PATCH/DELETE). */
@@ -58,6 +59,7 @@ export function createApiClient(options: ApiClientOptions) {
     baseUrl,
     getAccessToken,
     getRefreshToken,
+    prepareAuth,
     onTokensRefreshed,
     onUnauthorized,
     rpc,
@@ -108,6 +110,7 @@ export function createApiClient(options: ApiClientOptions) {
     action: string,
     data?: Record<string, unknown>,
   ): Promise<T> {
+    if (prepareAuth) await prepareAuth();
     try {
       return await rpc<T>(action, data);
     } catch (e) {
@@ -130,10 +133,18 @@ export function createApiClient(options: ApiClientOptions) {
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
     if (init.auth !== false) {
+      if (prepareAuth) await prepareAuth();
       const token = getAccessToken?.();
       if (token) headers.set("Authorization", `Bearer ${token}`);
     }
-    let res = await fetch(`${root}${path}`, { ...init, headers });
+    let res = await fetch(`${root}${path}`, { ...init, headers, redirect: "manual" });
+    if (res.status === 307 || res.status === 308) {
+      const location = res.headers.get("Location");
+      if (location) {
+        const nextUrl = location.startsWith("http") ? location : `${root}${location}`;
+        res = await fetch(nextUrl, { ...init, headers });
+      }
+    }
     if (
       res.status === 401 &&
       init.auth !== false &&
@@ -385,7 +396,7 @@ export function createApiClient(options: ApiClientOptions) {
     orbits: {
       list: (q?: string) =>
         request<{ data: OrbitPublic[] }>(
-          `/v1/orbits${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+          `/v1/orbits/${q ? `?q=${encodeURIComponent(q)}` : ""}`,
           { auth: false },
         ),
       get: (slug: string) =>
@@ -407,7 +418,7 @@ export function createApiClient(options: ApiClientOptions) {
           unreadCount: number;
           nextCursor: string | null;
           hasMore: boolean;
-        }>(`/v1/notifications${q ? `?${q}` : ""}`);
+        }>(`/v1/notifications/${q ? `?${q}` : ""}`);
       },
       read: (notificationId: string) =>
         callRpc<{ success: boolean }>("notifications.read", { notificationId }),
@@ -416,7 +427,7 @@ export function createApiClient(options: ApiClientOptions) {
     bookmarks: {
       list: (cursor?: string) =>
         request<PaginatedResponse<PostPublic>>(
-          `/v1/bookmarks/${cursor ? `?cursor=${cursor}` : ""}`,
+          `/v1/bookmarks${cursor ? `/?cursor=${encodeURIComponent(cursor)}` : "/"}`,
         ),
       add: (postId: string) => callRpc<{ bookmarked: boolean }>("bookmarks.add", { postId }),
       remove: (postId: string) => callRpc<{ bookmarked: boolean }>("bookmarks.remove", { postId }),

@@ -59,3 +59,10 @@ export function stopProactiveRefresh(): void {
   if (refreshInterval) clearInterval(refreshInterval);
   refreshInterval = null;
 }
+
+export async function ensureFreshAccessToken(): Promise<string | null> {
+  if (needsAccessRefresh()) {
+    await refreshTokensSilently();
+  }
+  return useAuthStore.getState().accessToken;
+}

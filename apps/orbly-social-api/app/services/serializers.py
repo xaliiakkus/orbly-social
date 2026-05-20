@@ -6,6 +6,7 @@ from app.models.orbit import Orbit
 from app.models.post import Post
 from app.models.user import User
 from app.schemas.common import OrbitOut, PollOptionOut, PollOut, PostOut, PostStatsOut, UserOut, UserStatsOut
+from app.services.url_utils import https_public_url, https_public_urls
 
 
 def _ts(doc: Document, field: str = "createdAt") -> str:
@@ -25,8 +26,8 @@ def user_out(user: User) -> UserOut:
         username=user.username,
         displayName=user.displayName,
         bio=user.bio,
-        avatarUrl=user.avatarUrl,
-        bannerUrl=user.bannerUrl,
+        avatarUrl=https_public_url(user.avatarUrl),
+        bannerUrl=https_public_url(user.bannerUrl),
         location=user.location,
         website=user.website,
         verified=user.verified,
@@ -48,8 +49,8 @@ def orbit_out(orbit: Orbit) -> OrbitOut:
         slug=orbit.slug,
         name=orbit.name,
         description=orbit.description,
-        iconUrl=orbit.iconUrl,
-        bannerUrl=orbit.bannerUrl,
+        iconUrl=https_public_url(orbit.iconUrl),
+        bannerUrl=https_public_url(orbit.bannerUrl),
         stats={"memberCount": orbit.stats.memberCount, "postCount": orbit.stats.postCount},
     )
 
@@ -90,7 +91,7 @@ def post_out(
     return PostOut(
         id=str(post.id),
         content=post.content,
-        mediaUrls=post.mediaUrls or [],
+        mediaUrls=https_public_urls(post.mediaUrls or []),
         author=user_out(author),
         orbit=orbit_out(orbit) if orbit else None,
         liveBroadcastId=str(post.liveBroadcastId) if post.liveBroadcastId else None,

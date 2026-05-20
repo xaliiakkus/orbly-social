@@ -68,9 +68,13 @@ export function useFollowToggle(
       if (ctx?.prev) {
         qc.setQueryData(["profile", username], ctx.prev);
       }
+      const msg = formatUserError(error);
       options?.onFeedback?.({
         type: "error",
-        message: formatUserError(error),
+        message:
+          msg.includes("giriş") || msg.includes("Oturum")
+            ? msg
+            : "Takip işlemi tamamlanamadı. Lütfen tekrar dene.",
       });
     },
     onSettled: () => {

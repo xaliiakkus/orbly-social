@@ -13,6 +13,7 @@ from app.utils import parse_limit
 router = APIRouter()
 
 
+@router.get("")
 @router.get("/")
 async def list_orbits(q: str | None = None, limit: int = Query(20, ge=1, le=50)):
     lim = parse_limit(limit)

@@ -2,7 +2,7 @@ const EXACT_MESSAGES: Record<string, string> = {
   "Email or username already taken": "Bu e-posta veya kullanıcı adı zaten kullanılıyor.",
   "Invalid credentials": "E-posta veya şifre hatalı.",
   "Account suspended": "Hesabın askıya alınmış. Destek ile iletişime geç.",
-  "Unauthorized": "Oturumun sona erdi. Lütfen tekrar giriş yap.",
+  Unauthorized: "Oturumun sona erdi. Lütfen tekrar giriş yap.",
   "User not found": "Kullanıcı bulunamadı.",
   "Invalid refresh token": "Oturumun süresi doldu. Lütfen tekrar giriş yap.",
   "Invalid Google token": "Google ile giriş başarısız. Tekrar dene.",

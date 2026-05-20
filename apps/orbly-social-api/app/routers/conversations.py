@@ -13,6 +13,7 @@ from app.utils import parse_limit
 router = APIRouter()
 
 
+@router.get("")
 @router.get("/")
 async def list_conversations(user_id: UserId):
     oid = PydanticObjectId(user_id)

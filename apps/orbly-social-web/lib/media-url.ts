@@ -25,6 +25,20 @@ export function isVideoMediaUrl(url: string): boolean {
   return false;
 }
 
+function upgradeToHttps(url: string): string {
+  if (typeof window === "undefined" || window.location.protocol !== "https:") {
+    return url;
+  }
+  if (!url.startsWith("http://")) return url;
+  try {
+    const host = new URL(url).hostname;
+    if (host === "localhost" || host === "127.0.0.1") return url;
+  } catch {
+    return url;
+  }
+  return url.replace(/^http:\/\//i, "https://");
+}
+
 /** API'den gelen `/uploads/...` yollarını tarayıcıda gösterilebilir URL'ye çevirir. */
 export function resolveMediaUrl(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
@@ -34,8 +48,8 @@ export function resolveMediaUrl(url: string | null | undefined): string | undefi
     url.startsWith("data:") ||
     url.startsWith("blob:")
   ) {
-    return url;
+    return upgradeToHttps(url);
   }
-  if (url.startsWith("/")) return `${API_BASE}${url}`;
+  if (url.startsWith("/")) return upgradeToHttps(`${API_BASE}${url}`);
   return url;
 }
