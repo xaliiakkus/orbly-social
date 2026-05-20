@@ -3,8 +3,22 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from app.commands.media_cmds import presign as presign_cmd
 from app.deps import UserId
 from app.schemas.media import PresignIn
+from app.services.cloudinary_media import is_configured as cloudinary_configured
+from app.services.cloudinary_media import upload_bytes as cloudinary_upload_bytes
 from app.services.r2 import save_local_upload
 from app.services.tenor import search_gifs
+
+_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+_MAX_VIDEO_BYTES = 100 * 1024 * 1024
+_ALLOWED_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "video/mp4",
+    "video/quicktime",
+    "video/webm",
+}
 
 router = APIRouter()
 
@@ -32,6 +46,27 @@ async def gifs(
     return {"data": data}
 
 
+@router.post("/upload")
+async def upload_media(
+    _user_id: UserId,
+    file: UploadFile = File(...),
+    folder: str = Query(default="media", max_length=50),
+):
+    """Sunucu üzerinden Cloudinary yükleme (imzalı istemci yüklemesi alternatifi)."""
+    if not cloudinary_configured():
+        raise HTTPException(503, "Cloudinary not configured")
+    ct = file.content_type or "application/octet-stream"
+    if ct not in _ALLOWED_TYPES:
+        raise HTTPException(400, f"Unsupported type: {ct}")
+    data = await file.read()
+    limit = _MAX_VIDEO_BYTES if ct.startswith("video/") else _MAX_IMAGE_BYTES
+    if len(data) > limit:
+        raise HTTPException(400, f"Max {limit // (1024 * 1024)}MB for this file type")
+    name = file.filename or "upload.bin"
+    url = cloudinary_upload_bytes(data, filename=name, content_type=ct, folder=folder)
+    return {"publicUrl": url}
+
+
 @router.post("/upload-local")
 async def upload_local(
     _user_id: UserId,
@@ -40,11 +75,11 @@ async def upload_local(
 ):
     """Multipart upload fallback when object storage is not configured."""
     data = await file.read()
-    if len(data) > 5 * 1024 * 1024:
-        raise HTTPException(400, "Max 5MB per file")
-    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4"}
     ct = file.content_type or "application/octet-stream"
-    if ct not in allowed:
+    if ct not in _ALLOWED_TYPES:
         raise HTTPException(400, f"Unsupported type: {ct}")
+    limit = _MAX_VIDEO_BYTES if ct.startswith("video/") else 5 * 1024 * 1024
+    if len(data) > limit:
+        raise HTTPException(400, f"Max {limit // (1024 * 1024)}MB per file")
     url = await save_local_upload(key, data, ct)
     return {"publicUrl": url}

@@ -31,8 +31,42 @@ from app.services.realtime import mount_socketio
 from app.services.redis_client import close_redis, connect_redis
 
 
+def _validate_mongo_uri(uri: str) -> None:
+    if not uri.startswith(("mongodb://", "mongodb+srv://")):
+        raise RuntimeError("MONGO_URI must start with mongodb:// or mongodb+srv://")
+    if "@@" in uri:
+        raise RuntimeError(
+            "MONGO_URI contains @@ — password likely has raw @; URL-encode it as %40"
+        )
+    if uri.count("@") > 1:
+        raise RuntimeError(
+            "MONGO_URI has multiple @ — encode special chars in password (& → %26, @ → %40)"
+        )
+    host = uri.split("@")[-1].split("/")[0].split("?")[0]
+    if not host or host.startswith(".") or ".." in host:
+        raise RuntimeError(
+            f"MONGO_URI host is invalid ({host!r}). "
+            "On Windows use single quotes: fly secrets set MONGO_URI='mongodb+srv://...'"
+        )
+
+
+def _ensure_production_config() -> None:
+    if settings.node_env != "production":
+        return
+    if "127.0.0.1" in settings.mongodb_uri or "localhost" in settings.mongodb_uri:
+        raise RuntimeError(
+            "Production requires MONGO_URI (Atlas). Run: fly secrets set MONGO_URI='mongodb+srv://...'"
+        )
+    _validate_mongo_uri(settings.mongodb_uri)
+    if settings.jwt_secret.startswith("change-me"):
+        raise RuntimeError(
+            "Production requires JWT_SECRET. Run: fly secrets set JWT_SECRET='...'"
+        )
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    _ensure_production_config()
     await connect_db()
     await connect_redis()
     await ensure_default_orbits()
@@ -99,13 +133,16 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 @app.get("/health", tags=["System"])
 async def health():
+    from app.services.cloudinary_media import is_configured as cloudinary_configured
     from app.services.livekit_egress import egress_storage_configured
     from app.services.livekit_tokens import livekit_configured
+    from app.services.redis_client import redis_ok
 
     return {
         "status": "ok",
         "service": "orbly-api",
-        "redis": settings.redis_enabled,
+        "redis": settings.redis_enabled and redis_ok(),
+        "cloudinary": cloudinary_configured(),
         "live": livekit_configured(),
         "vod": egress_storage_configured(),
     }

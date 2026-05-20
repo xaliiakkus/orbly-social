@@ -165,6 +165,8 @@ export interface PresignResponse {
   key: string;
   method: string;
   local?: boolean;
+  cloudinary?: boolean;
+  fields?: Record<string, string>;
 }
 
 export interface GifItem {

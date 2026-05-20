@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from app.config import settings
+from app.services.cloudinary_media import create_signed_upload, is_configured as cloudinary_configured
 
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
 
@@ -26,6 +27,13 @@ def create_presigned_upload(
 ) -> dict:
     ext = Path(filename).suffix.lower() or ".bin"
     key = f"{folder}/{uuid.uuid4().hex}{ext}"
+
+    if cloudinary_configured():
+        return create_signed_upload(
+            filename=filename,
+            content_type=content_type,
+            folder=folder,
+        )
 
     if _r2_configured():
         import boto3

@@ -1,3 +1,4 @@
+import type { PresignResponse } from "@orbly/types";
 import { Platform } from "react-native";
 
 import { resolveApiUrl } from "@/lib/api-url";
@@ -10,6 +11,8 @@ const ALLOWED = new Set([
   "image/webp",
   "image/gif",
   "video/mp4",
+  "video/quicktime",
+  "video/webm",
 ]);
 
 function normalizeType(name: string, type: string): string {
@@ -43,12 +46,28 @@ function formFile(uri: string, name: string, type: string) {
   } as unknown as Blob;
 }
 
-export async function uploadImage(uri: string, name: string, type: string): Promise<string> {
-  const contentType = normalizeType(name, type);
-  const filename = normalizeName(name, contentType);
-  const presign = await api.media.presign(filename, contentType);
+async function uploadWithPresign(
+  uri: string,
+  filename: string,
+  contentType: string,
+  presign: PresignResponse,
+): Promise<string> {
   const token = useAuthStore.getState().accessToken;
   const uploadUrl = resolveApiUrl(presign.uploadUrl);
+
+  if (presign.cloudinary && presign.fields) {
+    const form = new FormData();
+    form.append("file", formFile(uri, filename, contentType));
+    for (const [key, value] of Object.entries(presign.fields)) {
+      form.append(key, value);
+    }
+    const res = await fetch(uploadUrl, { method: "POST", body: form });
+    if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
+    const data = (await res.json()) as { secure_url?: string; url?: string };
+    const url = data.secure_url ?? data.url;
+    if (!url) throw new Error("Dosya yüklenemedi. Tekrar dene.");
+    return url;
+  }
 
   if (presign.local) {
     const form = new FormData();
@@ -75,4 +94,11 @@ export async function uploadImage(uri: string, name: string, type: string): Prom
   if (!res.ok) throw new Error("Dosya yüklenemedi. Tekrar dene.");
 
   return resolveApiUrl(presign.publicUrl);
+}
+
+export async function uploadImage(uri: string, name: string, type: string): Promise<string> {
+  const contentType = normalizeType(name, type);
+  const filename = normalizeName(name, contentType);
+  const presign = await api.media.presign(filename, contentType);
+  return uploadWithPresign(uri, filename, contentType, presign);
 }

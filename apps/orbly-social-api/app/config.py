@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     r2_public_url: str | None = Field(default=None, validation_alias="R2_PUBLIC_URL")
     media_local_fallback: bool = Field(default=True, validation_alias="MEDIA_LOCAL_FALLBACK")
 
+    cloudinary_cloud_name: str | None = Field(default=None, validation_alias="CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: str | None = Field(default=None, validation_alias="CLOUDINARY_API_KEY")
+    cloudinary_api_secret: str | None = Field(default=None, validation_alias="CLOUDINARY_API_SECRET")
+    cloudinary_url: str | None = Field(default=None, validation_alias="CLOUDINARY_URL")
+
     google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")
     apple_client_id: str | None = Field(default=None, validation_alias="APPLE_CLIENT_ID")
     tenor_api_key: str | None = Field(default=None, validation_alias="TENOR_API_KEY")
