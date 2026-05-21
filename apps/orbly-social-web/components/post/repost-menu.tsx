@@ -47,15 +47,18 @@ export function RepostMenu({
         onClick={handleToggle}
         disabled={disabled}
         className={cn(
-          "group flex items-center gap-1 p-2 rounded-full transition-colors",
+          "repost-action-group flex items-center gap-1.5 p-2 rounded-full transition-all",
           reposted
-            ? "text-repost"
-            : "text-text-secondary hover:text-repost hover:bg-repost/10",
+            ? "text-repost repost-active"
+            : "text-text-secondary hover:text-repost",
+          disabled && "opacity-40 cursor-not-allowed",
         )}
         aria-label="Yeniden paylaş"
         aria-expanded={open}
       >
-        <Repeat2 className={cn("h-[18px] w-[18px]", reposted && "fill-repost/20")} />
+        <span className="repost-action-bg rounded-full p-1 -m-1 transition-colors">
+          <Repeat2 className={cn("h-[18px] w-[18px]", reposted && "fill-current/20")} />
+        </span>
       </button>
       {open ? (
         <div

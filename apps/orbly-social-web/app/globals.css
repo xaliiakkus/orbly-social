@@ -99,4 +99,51 @@ body {
     background-size: 200% auto;
     animation: auth-shimmer 6s linear infinite;
   }
+
+  .post-card-hover {
+    border-bottom: 1px solid var(--color-border);
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .post-card-hover:hover {
+    background: var(--color-bg-hover);
+  }
+
+  .orbit-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-orbit);
+    background: rgba(120, 86, 255, 0.12);
+  }
+
+  .post-action-group:hover .post-action-bg,
+  .repost-action-group:hover .repost-action-bg,
+  .like-action-group:hover .like-action-bg {
+    background: rgba(29, 155, 240, 0.1);
+  }
+
+  .repost-action-group:hover .repost-action-bg {
+    background: rgba(0, 186, 124, 0.12);
+  }
+
+  .like-action-group:hover .like-action-bg {
+    background: rgba(249, 24, 128, 0.12);
+  }
+
+  .repost-active .repost-action-bg {
+    background: rgba(0, 186, 124, 0.15);
+  }
+
+  .like-active .like-action-bg {
+    background: rgba(249, 24, 128, 0.15);
+  }
+
+  .bookmark-active {
+    color: var(--color-accent);
+  }
 }
