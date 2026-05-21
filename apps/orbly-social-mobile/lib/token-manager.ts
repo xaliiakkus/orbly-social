@@ -1,6 +1,7 @@
 import type { AuthResponse } from "@orbly/types";
 
 import { getApiBaseUrl } from "@/lib/api-url";
+import { reconnectSocket } from "@/lib/socket";
 import { useAuthStore } from "./auth-store";
 
 const REFRESH_BUFFER_MS = 90_000;
@@ -11,6 +12,7 @@ let refreshInterval: ReturnType<typeof setInterval> | null = null;
 export function applyAuthTokens(payload: AuthResponse): void {
   const accessExpiresAt = Date.now() + payload.tokens.expiresIn * 1000;
   useAuthStore.getState().setAuth(payload, accessExpiresAt);
+  reconnectSocket();
 }
 
 export function needsAccessRefresh(): boolean {

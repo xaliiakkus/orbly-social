@@ -18,14 +18,30 @@ type NotificationPage = PaginatedResponse<NotificationItem> & {
   unreadCount: number;
 };
 
+const unreadListeners = new Set<() => void>();
+
+function notifyUnreadListeners() {
+  unreadListeners.forEach((fn) => fn());
+}
+
+/** Rozet hook'u — Query cache dışında da tetiklenir */
+export function subscribeNotificationUnread(onChange: () => void) {
+  unreadListeners.add(onChange);
+  return () => {
+    unreadListeners.delete(onChange);
+  };
+}
+
 export function setNotificationUnreadCount(qc: QueryClient, count: number) {
   qc.setQueryData(["notifications", "unread-count"], count);
+  notifyUnreadListeners();
 }
 
 export function bumpNotificationUnreadCount(qc: QueryClient, delta = 1) {
   qc.setQueryData<number>(["notifications", "unread-count"], (old) =>
     typeof old === "number" ? Math.max(0, old + delta) : delta,
   );
+  notifyUnreadListeners();
 }
 
 function flattenCachedNotifications(
@@ -112,14 +128,30 @@ export function applyNotificationToCache(
 
   const prev = qc.getQueryData<InfiniteData<NotificationPage>>(["notifications"]);
   if (!prev?.pages?.length) {
-    void qc.invalidateQueries({ queryKey: ["notifications"] });
+    const unread =
+      typeof raw.unreadCount === "number" ? raw.unreadCount : item.isRead ? 0 : 1;
+    qc.setQueryData<InfiniteData<NotificationPage>>(["notifications"], {
+      pages: [
+        {
+          data: [item],
+          unreadCount: unread,
+          hasMore: false,
+          nextCursor: null,
+        },
+      ],
+      pageParams: [undefined],
+    });
+    syncUnreadCountFromNotificationCache(qc);
+    notifyUnreadListeners();
     return;
   }
 
   if (prev.pages.some((p) => p.data.some((n: NotificationItem) => n.id === item.id))) {
+    syncUnreadCountFromNotificationCache(qc);
     return;
   }
 
+  notifyUnreadListeners();
   qc.setQueryData<InfiniteData<NotificationPage>>(["notifications"], {
     ...prev,
     pages: prev.pages.map((page, i) =>
@@ -135,4 +167,5 @@ export function applyNotificationToCache(
         : page,
     ),
   });
+  syncUnreadCountFromNotificationCache(qc);
 }

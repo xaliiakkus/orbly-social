@@ -13,6 +13,9 @@ const PUBLIC_AUTH_ACTIONS = new Set([
   "auth.oauth",
 ]);
 
+/** Yalnızca giriş/kayıt öncesi anonim RPC — mevcut oturum socket'ini koparma. */
+const DISCONNECT_SOCKET_ACTIONS = new Set(["auth.login", "auth.register", "auth.oauth"]);
+
 let suppressUnauthorizedLogout = false;
 
 /** Kayıtlı hesaba geçerken 401'de oturumu silme (refresh denenecek). */
@@ -36,7 +39,6 @@ export const api = createApiClient({
   },
   onTokensRefreshed: (payload) => {
     applyAuthTokens(payload);
-    reconnectSocket();
   },
   onUnauthorized: () => {
     if (suppressUnauthorizedLogout) return;
@@ -44,7 +46,7 @@ export const api = createApiClient({
   },
   rpc: (action, data) => {
     const anonymous = PUBLIC_AUTH_ACTIONS.has(action);
-    if (anonymous) disconnectSocket();
+    if (DISCONNECT_SOCKET_ACTIONS.has(action)) disconnectSocket();
     const token = anonymous ? null : useAuthStore.getState().accessToken;
     return socketRpc(getSocket(token), action, data ?? {});
   },

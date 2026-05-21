@@ -45,12 +45,14 @@ export function useRealtimeSync(
         applyNotificationToCache(qc, event);
       } else {
         void qc.invalidateQueries({ queryKey: ["notifications"] });
+        void qc.refetchQueries({ queryKey: ["notifications"], type: "active" });
       }
     };
 
     const onConnect = () => {
       void qc.invalidateQueries({ queryKey: ["notifications"] });
-      void qc.invalidateQueries({ queryKey: ["notifications", "unread-count"] });
+      void qc.refetchQueries({ queryKey: ["notifications"], type: "active" });
+      void qc.refetchQueries({ queryKey: ["notifications", "unread-count"], type: "active" });
     };
 
     const onFeedNew = () => {

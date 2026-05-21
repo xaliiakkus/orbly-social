@@ -1,10 +1,15 @@
 import { useEffect } from "react";
 
 import { api, withoutUnauthorizedLogout } from "@/lib/api";
+import { migratePersistFromSecureStore } from "@/lib/migrate-persist-storage";
 import { reconnectSocket } from "@/lib/socket";
 import { syncCurrentAccountToDevice } from "@/lib/sync-saved-account";
 import { useAuthStore } from "@/lib/auth-store";
-import { startProactiveRefresh, stopProactiveRefresh } from "@/lib/token-manager";
+import {
+  ensureFreshAccessToken,
+  startProactiveRefresh,
+  stopProactiveRefresh,
+} from "@/lib/token-manager";
 
 export function AuthBootstrap() {
   const refreshToken = useAuthStore((s) => s.refreshToken);
@@ -25,10 +30,12 @@ export function AuthBootstrap() {
       return;
     }
 
-    reconnectSocket();
     startProactiveRefresh();
 
     void withoutUnauthorizedLogout(async () => {
+      await migratePersistFromSecureStore();
+      await ensureFreshAccessToken();
+      reconnectSocket();
       try {
         const { user } = await api.auth.me();
         useAuthStore.getState().setUser(user);

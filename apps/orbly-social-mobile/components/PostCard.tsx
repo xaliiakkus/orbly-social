@@ -17,7 +17,7 @@ import type { PostPublic } from "@orbly/types";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Image } from "@/components/ui/expo-image";
 import { useRouter } from "expo-router";
-import { useContext, useEffect, useState, type ComponentProps } from "react";
+import { memo, useContext, useEffect, useState, type ComponentProps } from "react";
 import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
 
 import { EditPostModal } from "@/components/EditPostModal";
@@ -63,7 +63,40 @@ function PostAction({
   );
 }
 
-export function PostCard({
+function postCardPropsEqual(
+  prev: {
+    post: PostPublic;
+    onRefresh?: () => void;
+    onDeleted?: () => void;
+    onReply?: () => void;
+    threadRootId?: string;
+    replyingToUsername?: string | null;
+    highlightReply?: boolean;
+  },
+  next: typeof prev,
+) {
+  if (prev.post.id !== next.post.id) return false;
+  if (prev.highlightReply !== next.highlightReply) return false;
+  if (prev.threadRootId !== next.threadRootId) return false;
+  if (prev.replyingToUsername !== next.replyingToUsername) return false;
+  if (prev.onRefresh !== next.onRefresh) return false;
+  if (prev.onDeleted !== next.onDeleted) return false;
+  if (prev.onReply !== next.onReply) return false;
+  const p = prev.post;
+  const n = next.post;
+  return (
+    p.content === n.content &&
+    p.stats.likeCount === n.stats.likeCount &&
+    p.stats.replyCount === n.stats.replyCount &&
+    p.stats.repostCount === n.stats.repostCount &&
+    p.likedByMe === n.likedByMe &&
+    p.repostedByMe === n.repostedByMe &&
+    p.bookmarkedByMe === n.bookmarkedByMe &&
+    p.repostOf?.id === n.repostOf?.id
+  );
+}
+
+function PostCardInner({
   post,
   onRefresh,
   onDeleted,
@@ -432,6 +465,8 @@ export function PostCard({
     </Pressable>
   );
 }
+
+export const PostCard = memo(PostCardInner, postCardPropsEqual);
 
 const styles = StyleSheet.create({
   card: {

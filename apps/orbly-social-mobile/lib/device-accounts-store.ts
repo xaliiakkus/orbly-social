@@ -1,7 +1,8 @@
 import type { UserPublic } from "@orbly/types";
-import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { zustandPersistStorage } from "@/lib/zustand-persist-storage";
 
 export const MAX_DEVICE_ACCOUNTS = 3;
 
@@ -12,12 +13,6 @@ export interface SavedDeviceAccount {
   refreshToken: string;
   savedAt: string;
 }
-
-const storage = {
-  getItem: (name: string) => SecureStore.getItemAsync(name),
-  setItem: (name: string, value: string) => SecureStore.setItemAsync(name, value),
-  removeItem: (name: string) => SecureStore.deleteItemAsync(name),
-};
 
 interface DeviceAccountsState {
   accounts: SavedDeviceAccount[];
@@ -49,7 +44,7 @@ export const useDeviceAccountsStore = create<DeviceAccountsState>()(
     }),
     {
       name: "orbly-device-accounts-mobile",
-      storage: createJSONStorage(() => storage),
+      storage: createJSONStorage(() => zustandPersistStorage),
     },
   ),
 );

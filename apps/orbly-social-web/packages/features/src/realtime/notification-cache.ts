@@ -112,11 +112,26 @@ export function applyNotificationToCache(
 
   const prev = qc.getQueryData<InfiniteData<NotificationPage>>(["notifications"]);
   if (!prev?.pages?.length) {
-    void qc.invalidateQueries({ queryKey: ["notifications"] });
+    const unread =
+      typeof raw.unreadCount === "number" ? raw.unreadCount : item.isRead ? 0 : 1;
+    qc.setQueryData<InfiniteData<NotificationPage>>(["notifications"], {
+      pages: [
+        {
+          data: [item],
+          unreadCount: unread,
+          hasMore: false,
+          nextCursor: null,
+        },
+      ],
+      pageParams: [undefined],
+    });
+    syncUnreadCountFromNotificationCache(qc);
+    void qc.refetchQueries({ queryKey: ["notifications"], type: "active" });
     return;
   }
 
   if (prev.pages.some((p) => p.data.some((n: NotificationItem) => n.id === item.id))) {
+    syncUnreadCountFromNotificationCache(qc);
     return;
   }
 
@@ -135,4 +150,5 @@ export function applyNotificationToCache(
         : page,
     ),
   });
+  syncUnreadCountFromNotificationCache(qc);
 }

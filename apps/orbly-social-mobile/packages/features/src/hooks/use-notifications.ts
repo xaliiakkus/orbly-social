@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import type { NotificationItem } from "@orbly/types";
 
 import { useApi, useOrblyQueryClient } from "../context";
 import {
   markNotificationsReadInCache,
   setNotificationUnreadCount,
+  subscribeNotificationUnread,
   syncUnreadCountFromNotificationCache,
 } from "../realtime/notification-cache";
 
@@ -27,30 +28,56 @@ export function useNotificationsFeed(options?: { enabled?: boolean }) {
   });
 }
 
-/** Sekme rozeti — hafif meta sorgusu */
+/** Sekme rozeti — socket setQueryData ile anında güncellenir */
 export function useNotificationUnreadCount(options?: {
   enabled?: boolean;
   refetchOnMount?: boolean;
 }) {
   const api = useApi();
-  const qc = useQueryClient();
-  return useQuery({
-    queryKey: ["notifications", "unread-count"],
-    queryFn: async () => {
-      const badge = qc.getQueryData<number>(["notifications", "unread-count"]);
-      if (typeof badge === "number") return badge;
-      const cached = qc.getQueryData<{ pages: Array<{ unreadCount: number }> }>(["notifications"]);
-      if (cached?.pages[0] && typeof cached.pages[0].unreadCount === "number") {
-        return cached.pages[0].unreadCount;
-      }
-      const res = await api.notifications.list();
-      return res.unreadCount;
+  const qc = useOrblyQueryClient();
+  const enabled = options?.enabled ?? true;
+
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const unsubCache = qc.getQueryCache().subscribe(onStoreChange);
+      const unsubUnread = subscribeNotificationUnread(onStoreChange);
+      return () => {
+        unsubCache();
+        unsubUnread();
+      };
     },
-    enabled: options?.enabled ?? true,
-    staleTime: 0,
-    refetchOnMount: options?.refetchOnMount ?? true,
-    refetchOnWindowFocus: true,
-  });
+    [qc],
+  );
+
+  const getSnapshot = useCallback(() => {
+    const direct = qc.getQueryData<number>(["notifications", "unread-count"]);
+    if (typeof direct === "number") return direct;
+    const feed = qc.getQueryData<{ pages: Array<{ unreadCount: number }> }>(["notifications"]);
+    const fromFeed = feed?.pages?.[0]?.unreadCount;
+    if (typeof fromFeed === "number") return fromFeed;
+    return 0;
+  }, [qc]);
+
+  const count = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.notifications.list();
+        if (cancelled) return;
+        setNotificationUnreadCount(qc, res.unreadCount);
+      } catch {
+        /* çevrimdışı */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, qc, enabled, options?.refetchOnMount]);
+
+  return { data: count };
 }
 
 export function flattenNotifications(

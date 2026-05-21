@@ -1,13 +1,8 @@
 import type { AuthResponse, UserPublic } from "@orbly/types";
-import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-const storage = {
-  getItem: (name: string) => SecureStore.getItemAsync(name),
-  setItem: (name: string, value: string) => SecureStore.setItemAsync(name, value),
-  removeItem: (name: string) => SecureStore.deleteItemAsync(name),
-};
+import { zustandPersistStorage } from "@/lib/zustand-persist-storage";
 
 interface AuthState {
   user: UserPublic | null;
@@ -51,7 +46,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "orbly-auth-mobile",
-      storage: createJSONStorage(() => storage),
+      storage: createJSONStorage(() => zustandPersistStorage),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,

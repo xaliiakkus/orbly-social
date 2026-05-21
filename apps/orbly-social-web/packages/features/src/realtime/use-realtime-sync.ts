@@ -43,8 +43,10 @@ export function useRealtimeSync(
       const event = payload as NotificationSocketEvent;
       if (event?.id) {
         applyNotificationToCache(qc, event);
+        void qc.refetchQueries({ queryKey: ["notifications"], type: "active" });
       } else {
         void qc.invalidateQueries({ queryKey: ["notifications"] });
+        void qc.refetchQueries({ queryKey: ["notifications"], type: "active" });
       }
     };
 

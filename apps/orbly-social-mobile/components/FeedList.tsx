@@ -1,7 +1,7 @@
 import { formatUserError } from "@orbly/api-client";
 import { useFeed, type FeedMode } from "@orbly/features";
 import type { ReactNode } from "react";
-import { forwardRef } from "react";
+import { forwardRef, memo, useCallback, useMemo, useRef } from "react";
 import {
   FlatList,
   Pressable,
@@ -25,17 +25,57 @@ type Props = {
   ListHeaderComponent?: ReactNode;
 };
 
+const FeedPostRow = memo(function FeedPostRow({
+  post,
+  onRefresh,
+}: {
+  post: PostPublic;
+  onRefresh: () => void;
+}) {
+  return <PostCard post={post} onRefresh={onRefresh} />;
+});
+
+function feedRowKey(post: PostPublic): string {
+  return [
+    post.id,
+    post.stats.likeCount,
+    post.stats.replyCount,
+    post.stats.repostCount,
+    post.likedByMe ? 1 : 0,
+    post.repostedByMe ? 1 : 0,
+    post.bookmarkedByMe ? 1 : 0,
+    post.content.length,
+  ].join(":");
+}
+
 export const FeedList = forwardRef<FlatListType<PostPublic>, Props>(function FeedList(
   { mode, feedBanner, onRefreshBanner, ListHeaderComponent },
   ref,
 ) {
   const query = useFeed(mode);
   const posts: PostPublic[] = query.data?.pages.flatMap((p) => p.data) ?? [];
-
-  const refresh = () => {
+  const listVersion = useMemo(() => posts.map(feedRowKey).join("|"), [posts]);
+  const refreshRef = useRef(() => {
+    onRefreshBanner?.();
+    void query.refetch();
+  });
+  refreshRef.current = () => {
     onRefreshBanner?.();
     void query.refetch();
   };
+
+  const refresh = useCallback(() => {
+    refreshRef.current();
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: PostPublic }) => (
+      <FeedPostRow post={item} onRefresh={() => refreshRef.current()} />
+    ),
+    [],
+  );
+
+  const keyExtractor = useCallback((p: PostPublic) => p.id, []);
 
   if (query.isLoading) {
     return (
@@ -74,10 +114,14 @@ export const FeedList = forwardRef<FlatListType<PostPublic>, Props>(function Fee
       ref={ref}
       style={styles.flex}
       data={posts}
-      keyExtractor={(p) => p.id}
-      renderItem={({ item }) => (
-        <PostCard post={item} onRefresh={() => void query.refetch()} />
-      )}
+      extraData={listVersion}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+      removeClippedSubviews
+      initialNumToRender={8}
+      maxToRenderPerBatch={6}
+      windowSize={7}
+      updateCellsBatchingPeriod={50}
       ListHeaderComponent={
         <>
           {ListHeaderComponent}
