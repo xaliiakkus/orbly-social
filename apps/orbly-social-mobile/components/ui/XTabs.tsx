@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   indicator: {
     position: "absolute",
     bottom: 0,
-    width: 56,
+    width: 48,
     height: 4,
     borderRadius: 2,
     backgroundColor: OrblyColors.accent,

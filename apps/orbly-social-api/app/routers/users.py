@@ -1,8 +1,10 @@
 from beanie import PydanticObjectId
+from beanie.operators import In
 from fastapi import APIRouter, HTTPException, Query
 from app.deps import OptionalUserId, UserId
 from app.models.follow import Follow
 from app.models.live_channel import LiveChannel
+from app.models.orbit import Orbit
 from app.models.post import Post
 from app.models.user import User
 from app.commands.users_cmds import follow as follow_user, unfollow as unfollow_user, update_me
@@ -10,7 +12,7 @@ from app.schemas.common import PaginatedPosts, PaginatedUsers
 from app.schemas.users import UpdateProfileIn
 from app.services.posts import enrich_posts
 from app.services.follow_checks import is_mutual_follow, viewer_follows
-from app.services.serializers import user_out
+from app.services.serializers import orbit_out, user_out
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
 router = APIRouter()
@@ -143,3 +145,51 @@ async def following(username: str, cursor: str | None = None, limit: int = Query
         raise HTTPException(404, "User not found")
     follows = await Follow.find(Follow.followerId == user.id).sort(-Follow.id).limit(parse_limit(limit) + 50).to_list()
     return await _paginate_users(follows, "followingId", cursor, limit)
+
+
+@router.get("/{username}/orbits")
+async def user_orbits(username: str):
+    user = await User.find_one(User.username == username.lower(), User.isBanned == False)
+    if not user:
+        raise HTTPException(404, "User not found")
+    orbit_ids = list(user.orbitIds or [])
+    if not orbit_ids:
+        return {"data": []}
+    orbits = await Orbit.find(In(Orbit.id, orbit_ids)).to_list()
+    order = {oid: i for i, oid in enumerate(orbit_ids)}
+    orbits.sort(key=lambda o: order.get(o.id, 999))
+    return {"data": [orbit_out(o) for o in orbits]}
+
+
+@router.get("/{username}/mutual-followers")
+async def mutual_followers(
+    username: str,
+    viewer_id: OptionalUserId = None,
+    limit: int = Query(3, ge=1, le=20),
+):
+    """Görüntüleyenin takip ettiği ve bu profili de takip eden kullanıcılar."""
+    if not viewer_id:
+        return {"data": [], "totalCount": 0}
+    user = await User.find_one(User.username == username.lower(), User.isBanned == False)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if viewer_id == str(user.id):
+        return {"data": [], "totalCount": 0}
+
+    viewer_following = await Follow.find(Follow.followerId == PydanticObjectId(viewer_id)).to_list()
+    following_ids = [f.followingId for f in viewer_following]
+    if not following_ids:
+        return {"data": [], "totalCount": 0}
+
+    base_q = Follow.find(
+        Follow.followingId == user.id,
+        In(Follow.followerId, following_ids),
+    )
+    total = await base_q.count()
+    lim = parse_limit(limit)
+    mutual = await base_q.sort(-Follow.createdAt).limit(lim).to_list()
+    ids = [f.followerId for f in mutual]
+    users = await User.find(In(User.id, ids)).to_list()
+    umap = {u.id: u for u in users}
+    data = [user_out(umap[i]) for i in ids if i in umap]
+    return {"data": data, "totalCount": total}

@@ -1,17 +1,13 @@
-"""Seed orbits + demo user. Run: python seed.py"""
+"""Seed default orbits. Run: python seed.py"""
 import asyncio
 
 from beanie import init_beanie
 from pymongo import AsyncMongoClient
 from pymongo.errors import ConfigurationError
-from passlib.context import CryptContext
 
 from app.config import settings
 from app.models import ALL_DOCUMENTS
 from app.models.orbit import Orbit, OrbitStats
-from app.models.user import User, UserStats
-
-pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ORBITS = [
     {"slug": "tech", "name": "Tech", "description": "Yazılım, donanım ve startup"},
@@ -36,20 +32,7 @@ async def main() -> None:
         if not existing:
             await Orbit(slug=o["slug"], name=o["name"], description=o["description"], stats=OrbitStats()).insert()
 
-    demo = await User.find_one(User.email == "demo@orbly.social")
-    if not demo:
-        await User(
-            username="demo",
-            displayName="Demo User",
-            email="demo@orbly.social",
-            passwordHash=pwd.hash("password123"),
-            onboarded=True,
-            bio="Orbly demo hesabı",
-            stats=UserStats(),
-        ).insert()
-
-    print("Seed OK:", len(ORBITS), "orbits, demo@orbly.social / password123")
-    await client.close()
+    print("Seed OK:", len(ORBITS), "orbits")
 
 
 if __name__ == "__main__":

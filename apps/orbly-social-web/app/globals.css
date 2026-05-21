@@ -146,4 +146,84 @@ body {
   .bookmark-active {
     color: var(--color-accent);
   }
+
+  .gradient-banner {
+    background: linear-gradient(135deg, #1d2a3a 0%, #0f1923 50%, #1a0a2e 100%);
+  }
+
+  .glass-card {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+  }
+
+  .btn-follow {
+    background-color: var(--color-text-primary);
+    color: #000000;
+    font-weight: 700;
+    border-radius: 9999px;
+    transition: background-color 150ms ease, transform 150ms ease;
+  }
+
+  .btn-follow:hover {
+    background-color: rgba(231, 233, 234, 0.9);
+  }
+
+  .btn-following {
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    font-weight: 700;
+    border-radius: 9999px;
+    background: transparent;
+    transition: all 150ms ease;
+  }
+
+  .btn-following:hover {
+    border-color: rgba(249, 24, 128, 0.5);
+    color: var(--color-like);
+    background-color: rgba(249, 24, 128, 0.1);
+  }
+
+  .btn-outline {
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    font-weight: 700;
+    border-radius: 9999px;
+    background: transparent;
+    transition: background-color 150ms ease;
+  }
+
+  .btn-outline:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .tab-active {
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .tab-inactive {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  .tab-inactive:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    color: var(--color-text-primary);
+  }
+
+  @keyframes profile-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-profile-fade-in {
+    animation: profile-fade-in 0.25s ease-out forwards;
+  }
 }

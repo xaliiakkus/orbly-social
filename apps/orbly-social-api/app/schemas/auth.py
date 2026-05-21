@@ -23,8 +23,8 @@ class RegisterIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    email: EmailStr = Field(examples=["demo@orbly.social"])
-    password: str = Field(examples=["password123"])
+    email: EmailStr = Field(examples=["info@orbly.social"])
+    password: str = Field(examples=["your-password"])
 
 
 class RefreshIn(BaseModel):

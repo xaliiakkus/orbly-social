@@ -70,7 +70,7 @@ export default function ProfilePage() {
     );
   }
 
-  const { user, isFollowing, isSelf, canMessage } = profile.data;
+  const { user, isFollowing, isFollowedBy, isSelf, canMessage } = profile.data;
 
   const onMessage = () => {
     if (!canMessage) {
@@ -127,6 +127,7 @@ export default function ProfilePage() {
           user={user}
           isSelf={isSelf}
           isFollowing={isFollowing}
+          isFollowedBy={isFollowedBy}
           followPending={follow.isPending}
           onFollowToggle={() => follow.mutate(isFollowing)}
           onEditProfile={() => setEditOpen(true)}

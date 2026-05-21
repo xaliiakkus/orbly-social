@@ -19,6 +19,7 @@ from app.routers import (
     live,
     live_webhook,
     media,
+    meta,
     notifications,
     orbits,
     posts,
@@ -123,6 +124,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(meta.router, prefix="/v1/meta", tags=["Meta"])
 app.include_router(auth.router, prefix="/v1/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/v1/users", tags=["Users"])
 app.include_router(posts.router, prefix="/v1/posts", tags=["Posts"])

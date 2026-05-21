@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +24,7 @@ import { useDeviceAccountsStore } from "@/lib/device-accounts-store";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { disconnectSocket, reconnectSocket } from "@/lib/socket";
+import { ORBLY_SUPPORT_EMAIL, supportMailto } from "@/lib/app-contact";
 import { syncCurrentAccountToDevice } from "@/lib/sync-saved-account";
 
 export default function LoginScreen() {
@@ -31,8 +33,8 @@ export default function LoginScreen() {
   const params = useLocalSearchParams<{ addAccount?: string }>();
   const addAccount = params.addAccount === "1";
   const setAuth = useAuthStore((s) => s.setAuth);
-  const [email, setEmail] = useState("demo@orbly.social");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
@@ -145,6 +147,12 @@ export default function LoginScreen() {
         value={password}
         onChangeText={setPassword}
       />
+      <Pressable
+        style={styles.forgotWrap}
+        onPress={() => void Linking.openURL(supportMailto("Şifre sıfırlama"))}
+      >
+        <Text style={styles.forgotText}>Şifremi unuttum</Text>
+      </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable style={styles.btn} onPress={() => void submit()} disabled={loading}>
         {loading ? (
@@ -159,6 +167,16 @@ export default function LoginScreen() {
           <Text style={styles.linkText}>Hesap oluştur</Text>
         </Pressable>
       )}
+
+      <Text style={styles.supportHint}>
+        Destek:{" "}
+        <Text
+          style={styles.supportLink}
+          onPress={() => void Linking.openURL(supportMailto("Destek"))}
+        >
+          {ORBLY_SUPPORT_EMAIL}
+        </Text>
+      </Text>
 
       <AccountLimitModal visible={limitOpen} onClose={() => setLimitOpen(false)} />
     </ScrollView>
@@ -217,4 +235,13 @@ const styles = StyleSheet.create({
   btnText: { color: "#000", fontWeight: "700", fontSize: 15 },
   linkWrap: { marginTop: 16, alignItems: "center" },
   linkText: { color: OrblyColors.accent, fontSize: 15 },
+  forgotWrap: { alignSelf: "flex-end", marginBottom: 12, marginTop: -4 },
+  forgotText: { color: OrblyColors.accent, fontSize: 14, fontWeight: "600" },
+  supportHint: {
+    marginTop: 20,
+    textAlign: "center",
+    color: OrblyColors.textSecondary,
+    fontSize: 13,
+  },
+  supportLink: { color: OrblyColors.accent, fontWeight: "600" },
 });

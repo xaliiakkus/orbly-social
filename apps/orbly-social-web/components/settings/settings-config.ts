@@ -79,8 +79,16 @@ export const SECTION_META: Record<
         id: "password",
         icon: KeyRound,
         title: "Şifreni değiştir",
-        description: "İstediğin zaman değiştirebilirsin",
+        description: "Şifre sıfırlama: info@orbly.social",
         available: false,
+      },
+      {
+        id: "support",
+        icon: Globe,
+        title: "Yardım ve destek",
+        description: "info@orbly.social",
+        available: true,
+        href: "mailto:info@orbly.social?subject=Destek",
       },
       {
         id: "download",

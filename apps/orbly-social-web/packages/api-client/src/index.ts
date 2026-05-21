@@ -276,6 +276,14 @@ export function createApiClient(options: ApiClientOptions) {
         request<{ data: LiveBroadcastStats[] }>(
           `/v1/users/${encodeURIComponent(username)}/broadcasts`,
         ),
+      orbits: (username: string) =>
+        request<{ data: import("@orbly/types").OrbitPublic[] }>(
+          `/v1/users/${encodeURIComponent(username)}/orbits`,
+        ),
+      mutualFollowers: (username: string, limit = 3) =>
+        request<import("@orbly/types").MutualFollowersResponse>(
+          `/v1/users/${encodeURIComponent(username)}/mutual-followers?limit=${limit}`,
+        ),
       follow: async (userId: string) => {
         try {
           return await callRpc<{ following: boolean }>("users.follow", { userId });

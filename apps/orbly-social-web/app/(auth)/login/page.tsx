@@ -9,7 +9,6 @@ import {
   Loader2,
   Lock,
   Mail,
-  Sparkles,
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +19,7 @@ import { AccountLimitModal } from "@/components/auth/account-limit-modal";
 import { AccountSwitcher } from "@/components/auth/account-switcher";
 import { Button } from "@/components/ui/button";
 import { Logo, OrblyWordmark } from "@/components/ui/logo";
+import { supportMailtoSubject } from "@/lib/app-contact";
 import { cancelAddAccount } from "@/lib/cancel-add-account";
 import { MAX_DEVICE_ACCOUNTS, useDeviceAccountsStore } from "@/lib/device-accounts-store";
 import { cn } from "@/lib/cn";
@@ -169,8 +169,8 @@ function LoginForm() {
   const { update } = useSession();
   const emailId = useId();
   const passwordId = useId();
-  const [email, setEmail] = useState("demo@orbly.social");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -252,12 +252,6 @@ function LoginForm() {
     router.refresh();
   };
 
-  const fillDemo = () => {
-    setEmail("Buraya E-posta Gireceksiniz");
-    setPassword("Buraya Şifre Gireceksiniz");
-    setError("");
-  };
-
   return (
     <div className="w-full max-w-[440px] auth-animate-in">
       <div className="relative">
@@ -333,6 +327,14 @@ function LoginForm() {
             icon={Mail}
             autoComplete="email"
           />
+          <div className="flex justify-end -mt-1">
+            <a
+              href={supportMailtoSubject("Şifre sıfırlama")}
+              className="text-[13px] font-semibold text-accent hover:underline"
+            >
+              Şifremi unuttum
+            </a>
+          </div>
           <AuthField
             id={passwordId}
             label="Şifre"
@@ -386,20 +388,6 @@ function LoginForm() {
             )}
           </Button>
 
-          {!addAccount && (
-            <button
-              type="button"
-              onClick={fillDemo}
-              className={cn(
-                "w-full flex items-center justify-center gap-2 rounded-full py-2",
-                "text-[13px] font-medium text-text-tertiary transition-colors",
-                "hover:text-accent hover:bg-accent/5",
-              )}
-            >
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              Demo hesabı doldur
-            </button>
-          )}
         </form>
 
         <div className="mt-5 space-y-3 auth-animate-in auth-delay-4">
@@ -430,6 +418,11 @@ function LoginForm() {
 
       <p className="mt-6 text-center text-[12px] text-text-tertiary leading-relaxed px-4 auth-animate-in auth-delay-5">
         Giriş yaparak platform kurallarına ve gizlilik ilkelerine uymayı kabul edersin.
+        <br />
+        Yardım:{" "}
+        <a href={supportMailtoSubject("Destek")} className="text-accent hover:underline">
+          info@orbly.social
+        </a>
       </p>
 
       <AccountLimitModal open={limitOpen} onClose={() => setLimitOpen(false)} />

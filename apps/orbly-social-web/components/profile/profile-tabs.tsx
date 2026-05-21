@@ -6,6 +6,7 @@ export type ProfileTab =
   | "posts"
   | "broadcasts"
   | "replies"
+  | "orbits"
   | "highlights"
   | "articles"
   | "media"
@@ -15,9 +16,8 @@ const tabs: { id: ProfileTab; label: string }[] = [
   { id: "posts", label: "Gönderiler" },
   { id: "broadcasts", label: "Yayınlar" },
   { id: "replies", label: "Yanıtlar" },
-  { id: "highlights", label: "Öne Çıkanlar" },
-  { id: "articles", label: "Makaleler" },
   { id: "media", label: "Medya" },
+  { id: "orbits", label: "Orbit'ler" },
   { id: "likes", label: "Beğeni" },
 ];
 
@@ -30,7 +30,7 @@ export function ProfileTabs({
 }) {
   return (
     <nav
-      className="sticky top-[53px] z-40 bg-bg-primary/80 backdrop-blur-md border-b border-border"
+      className="sticky top-[53px] z-40 bg-bg-primary/90 backdrop-blur-md border-b border-border"
       aria-label="Profil sekmeleri"
     >
       <div className="flex overflow-x-auto scrollbar-hide">
@@ -40,17 +40,17 @@ export function ProfileTabs({
             type="button"
             onClick={() => onChange(t.id)}
             className={cn(
-              "relative flex-shrink-0 px-4 py-4 text-[15px] text-text-secondary hover:bg-bg-hover transition-colors whitespace-nowrap",
-              active === t.id && "font-bold text-text-primary",
+              "relative flex-1 min-w-[80px] py-4 text-[15px] transition-colors whitespace-nowrap px-2",
+              active === t.id ? "tab-active" : "tab-inactive",
             )}
           >
             {t.label}
-            {active === t.id && (
+            {active === t.id ? (
               <span
-                className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-accent"
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-accent rounded-full"
                 aria-hidden
               />
-            )}
+            ) : null}
           </button>
         ))}
       </div>

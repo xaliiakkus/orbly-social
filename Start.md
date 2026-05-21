@@ -60,20 +60,14 @@ CORS_ORIGIN=http://localhost:3000,http://localhost:8081
 
 ---
 
-## 4. Seed verisi (orbit’ler + demo kullanıcı)
+## 4. Seed verisi (varsayılan orbit’ler)
 
 ```bash
-# Proje kökünden
-MONGODB_URI=mongodb://127.0.0.1:27018/orbly yarn db:seed
+cd apps/orbly-social-api
+python seed.py
 ```
 
-**Demo hesap**
-
-| Alan | Değer |
-|------|--------|
-| Email | `demo@orbly.social` |
-| Şifre | `password123` |
-| Kullanıcı adı | `demo` |
+Destek ve şifre sıfırlama talepleri: **info@orbly.social**
 
 ---
 

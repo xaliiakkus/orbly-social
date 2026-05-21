@@ -4,7 +4,6 @@ import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { formatCount } from "@/lib/format";
-import { cn } from "@/lib/cn";
 
 export function ProfileTopBar({
   displayName,
@@ -18,29 +17,24 @@ export function ProfileTopBar({
   const router = useRouter();
 
   return (
-    <div
-      className={cn(
-        "sticky top-0 z-50 flex items-center gap-6 px-2 h-[53px]",
-        "bg-bg-primary/80 backdrop-blur-md border-b border-border",
-      )}
-    >
+    <div className="sticky top-0 z-50 flex items-center gap-4 px-4 py-3 min-h-[53px] bg-bg-primary/80 backdrop-blur-md border-b border-border">
       <button
         type="button"
         onClick={() => router.back()}
-        className="p-2 -ml-1 rounded-full hover:bg-bg-hover transition-colors"
+        className="p-2 -ml-2 rounded-full hover:bg-bg-hover transition-colors shrink-0"
         aria-label="Geri"
       >
         <ArrowLeft className="h-5 w-5" />
       </button>
       <div className="min-w-0 flex-1">
-        {displayName && (
-          <p className="font-bold text-[20px] leading-6 truncate">{displayName}</p>
-        )}
-        {postsCount !== undefined && (
-          <p className="text-text-secondary text-[13px] leading-4 truncate">
+        {displayName ? (
+          <h1 className="font-bold text-[20px] leading-none truncate">{displayName}</h1>
+        ) : null}
+        {postsCount !== undefined ? (
+          <p className="text-[13px] text-text-secondary mt-0.5 truncate">
             {formatCount(postsCount)} gönderi
           </p>
-        )}
+        ) : null}
       </div>
       {trailing}
     </div>

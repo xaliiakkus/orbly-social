@@ -176,6 +176,11 @@ export interface UserProfileResponse {
   isSelf: boolean;
 }
 
+export interface MutualFollowersResponse {
+  data: UserPublic[];
+  totalCount: number;
+}
+
 export interface PresignResponse {
   uploadUrl: string;
   publicUrl: string;

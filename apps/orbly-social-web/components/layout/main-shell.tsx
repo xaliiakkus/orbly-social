@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LeftSidebar } from "@/components/layout/left-sidebar";
 import { MobileComposeFab } from "@/components/layout/mobile-compose-fab";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { ProfileRightSidebar } from "@/components/profile/profile-right-sidebar";
 import { RightSidebar } from "@/components/layout/right-sidebar";
 import { ReplyComposeShell } from "@/components/post/reply-compose-shell";
 import { cn } from "@/lib/cn";
@@ -16,6 +17,10 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isSettings = pathname?.startsWith("/settings");
   const isLiveBroadcast = /^\/live\/[^/]+(\/ozet)?$/.test(pathname ?? "");
+  const profileMatch = pathname?.match(/^\/profile\/([^/]+)/);
+  const profileUsername = profileMatch?.[1]
+    ? decodeURIComponent(profileMatch[1])
+    : undefined;
 
   return (
     <ReplyComposeShell>
@@ -40,7 +45,10 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           >
             {children}
           </main>
-          {!isSettings && !isLiveBroadcast && <RightSidebar />}
+          {!isSettings && !isLiveBroadcast && profileUsername ? (
+            <ProfileRightSidebar username={profileUsername} />
+          ) : null}
+          {!isSettings && !isLiveBroadcast && !profileUsername ? <RightSidebar /> : null}
         </div>
       </div>
       {!isLiveBroadcast && <MobileNav />}

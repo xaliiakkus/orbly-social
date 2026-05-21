@@ -134,5 +134,8 @@ class Settings(BaseSettings):
     livekit_api_key: str = Field(default="", validation_alias="LIVEKIT_API_KEY")
     livekit_api_secret: str = Field(default="", validation_alias="LIVEKIT_API_SECRET")
 
+    support_email: str = Field(default="info@orbly.social", validation_alias="SUPPORT_EMAIL")
+    mail_from_email: str = Field(default="info@orbly.social", validation_alias="MAIL_FROM_EMAIL")
+
 
 settings = Settings()

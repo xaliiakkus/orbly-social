@@ -58,7 +58,11 @@ orbly/
 │   │   │   ├── orbit/
 │   │   │   ├── user/
 │   │   │   └── ui/
-│   │   └── lib/
+│   │   │── lib/
+├───│── └ packages/
+│   │      ├── db/                   # Mongoose modelleri (legacy / referans)
+│   │      ├── types/                # Ortak TypeScript tipleri (web/mobile)
+│   │      └── config/               # Ortak env/config
 │   ├── mobile/                  # ReactNative Mobile
 │   │   ├── app/
 │   │   │   ├── (auth)/
@@ -83,7 +87,11 @@ orbly/
 │   │   │   ├── orbit/
 │   │   │   ├── user/
 │   │   │   └── ui/
-│   │   └── lib/
+│   │   │── lib/
+├───│───│── packages/
+│   │        ├── db/                   # Mongoose modelleri (legacy / referans)
+│   │        ├── types/                # Ortak TypeScript tipleri (web/mobile)
+│   │        └── config/               # Ortak env/config
 │   └── api/                  # Python FastAPI (ayrı servis, :4000)
 │       ├── app/
 │       │   ├── main.py       # Uygulama girişi, router mount
@@ -94,13 +102,8 @@ orbly/
 │       │   ├── routers/      # /v1/* endpoint'leri
 │       │   └── services/
 │       ├── requirements.txt
-│       ├── seed.py           # Orbit + demo kullanıcı
+│       ├── seed.py           # Varsayılan orbit’ler
 │       └── .env.example
-├── packages/
-│   ├── db/                   # Mongoose modelleri (legacy / referans)
-│   ├── types/                # Ortak TypeScript tipleri (web/mobile)
-│   └── config/               # Ortak env/config
-└── infra/                    # docker-compose (MongoDB :27018, Redis)
 ```
 
 ---
@@ -816,7 +819,7 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 4000
 | ReDoc | http://localhost:4000/redoc |
 | Health | http://localhost:4000/health |
 
-**Demo hesap (seed sonrası):** `demo@orbly.social` / `password123`
+**Destek / hesap yardımı:** info@orbly.social
 
 ```bash
 # Web (ayrı terminal)

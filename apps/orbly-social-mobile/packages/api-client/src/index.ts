@@ -2,12 +2,14 @@ import type {
   AuthResponse,
   ConversationItem,
   MessageItem,
+  MutualFollowersResponse,
   NotificationItem,
   OrbitPublic,
   PaginatedResponse,
   PostPublic,
   GifItem,
   PresignResponse,
+  UserProfileResponse,
   UserPublic,
 } from "@orbly/types";
 
@@ -264,7 +266,7 @@ export function createApiClient(options: ApiClientOptions) {
     },
     users: {
       get: (username: string) =>
-        request<import("@orbly/types").UserProfileResponse>(
+        request<UserProfileResponse>(
           `/v1/users/${encodeURIComponent(username)}`,
         ),
       posts: (username: string, cursor?: string) =>
@@ -274,6 +276,14 @@ export function createApiClient(options: ApiClientOptions) {
       broadcasts: (username: string) =>
         request<{ data: LiveBroadcastStats[] }>(
           `/v1/users/${encodeURIComponent(username)}/broadcasts`,
+        ),
+      orbits: (username: string) =>
+        request<{ data: OrbitPublic[] }>(
+          `/v1/users/${encodeURIComponent(username)}/orbits`,
+        ),
+      mutualFollowers: (username: string, limit = 3) =>
+        request<MutualFollowersResponse>(
+          `/v1/users/${encodeURIComponent(username)}/mutual-followers?limit=${limit}`,
         ),
       follow: async (userId: string) => {
         try {
