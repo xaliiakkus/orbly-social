@@ -2,7 +2,8 @@ import { useEffect } from "react";
 
 import { SOCKET_EVENTS } from "../constants";
 import { useOrblyQueryClient } from "../context";
-import { appendMessageToCache, applyPostStatsToCache } from "./cache";
+import { applyPostStatsToCache } from "./cache";
+import { applyMessageToConversationCache } from "./conversation-cache";
 import {
   applyNotificationToCache,
   type NotificationSocketEvent,
@@ -33,7 +34,9 @@ export function useRealtimeSync(
 
     const onMessage = (payload: unknown) => {
       const event = payload as MessageEvent;
-      if (event?.conversationId && event.message) appendMessageToCache(qc, event);
+      if (event?.conversationId && event.message) {
+        applyMessageToConversationCache(qc, event, getViewerId?.() ?? null);
+      }
     };
 
     const onNotification = (payload: unknown) => {
@@ -47,6 +50,7 @@ export function useRealtimeSync(
 
     const onConnect = () => {
       void qc.invalidateQueries({ queryKey: ["notifications"] });
+      void qc.invalidateQueries({ queryKey: ["notifications", "unread-count"] });
     };
 
     const onFeedNew = () => {

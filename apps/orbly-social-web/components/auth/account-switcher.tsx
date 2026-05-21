@@ -3,10 +3,13 @@
 import { Check, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import { useSavedAccountsNotificationUnread } from "@orbly/features";
 
 import { AccountLimitModal } from "@/components/auth/account-limit-modal";
 import { Avatar } from "@/components/ui/avatar";
+import { CountBadge } from "@/components/ui/count-badge";
 import {
   MAX_DEVICE_ACCOUNTS,
   useDeviceAccountsStore,
@@ -16,6 +19,7 @@ import { clearAddAccountFlow, stashReturnUserId } from "@/lib/cancel-add-account
 import { useAuthStore } from "@/lib/auth-store";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/api-url";
 
 export function AccountSwitcher({
   onClose,
@@ -31,6 +35,7 @@ export function AccountSwitcher({
   const router = useRouter();
   const { update } = useSession();
   const currentUser = useAuthStore((s) => s.user);
+  const sessionToken = useAuthStore((s) => s.accessToken);
   const accounts = useDeviceAccountsStore((s) => s.accounts);
   const canAddNewAccount = useDeviceAccountsStore((s) => s.canAddNewAccount);
   const [limitOpen, setLimitOpen] = useState(false);
@@ -90,22 +95,36 @@ export function AccountSwitcher({
     router.push("/login?addAccount=1");
   };
 
-  if (accounts.length === 0 && !currentUser) return null;
+  const list = useMemo(() => {
+    const base =
+      accounts.length > 0
+        ? accounts
+        : currentUser
+          ? [
+              {
+                userId: currentUser.id,
+                user: currentUser,
+                accessToken: "",
+                refreshToken: "",
+                savedAt: "",
+              },
+            ]
+          : [];
+    return base.map((a) => ({
+      ...a,
+      accessToken:
+        a.userId === activeId && sessionToken ? sessionToken : a.accessToken,
+    }));
+  }, [accounts, currentUser, activeId, sessionToken]);
 
-  const list =
-    accounts.length > 0
-      ? accounts
-      : currentUser
-        ? [
-            {
-              userId: currentUser.id,
-              user: currentUser,
-              accessToken: "",
-              refreshToken: "",
-              savedAt: "",
-            },
-          ]
-        : [];
+  const unreadByAccount = useSavedAccountsNotificationUnread(
+    list.map((a) => ({ userId: a.userId, accessToken: a.accessToken })),
+    activeId,
+    getApiBaseUrl(),
+    { enabled: list.length > 0 },
+  );
+
+  if (accounts.length === 0 && !currentUser) return null;
 
   return (
     <>
@@ -128,11 +147,19 @@ export function AccountSwitcher({
                   switching === acc.userId && "opacity-60",
                 )}
               >
-                <Avatar
-                  src={acc.user.avatarUrl}
-                  name={acc.user.displayName}
-                  size="sm"
-                />
+                <span className="relative shrink-0">
+                  <Avatar
+                    src={acc.user.avatarUrl}
+                    name={acc.user.displayName}
+                    size="sm"
+                  />
+                  <CountBadge
+                    count={unreadByAccount[acc.userId] ?? 0}
+                    variant="inline"
+                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] text-[10px] leading-[18px] border-2 border-bg-primary"
+                    ariaLabelPrefix="okunmamış bildirim"
+                  />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-[15px] truncate">{acc.user.displayName}</p>
                   <p className="text-text-secondary text-[13px] truncate">

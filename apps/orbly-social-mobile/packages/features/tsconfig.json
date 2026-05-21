@@ -3,7 +3,12 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM"],
-    "rootDir": "src"
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@orbly/types": ["../types/src/index.ts"],
+      "@orbly/api-client": ["../api-client/src/index.ts"]
+    }
   },
   "include": ["src"]
 }

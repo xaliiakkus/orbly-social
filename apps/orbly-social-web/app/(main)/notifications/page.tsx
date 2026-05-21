@@ -17,6 +17,7 @@ import {
   groupNotifications,
   useMarkNotificationRead,
   useNotificationsFeed,
+  useNotificationsMarkSeenOnVisit,
   type NotificationFeedEntry,
   type NotificationTabId,
 } from "@orbly/features";
@@ -27,6 +28,7 @@ export default function NotificationsPage() {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isRefetching } =
     useNotificationsFeed();
   const markRead = useMarkNotificationRead();
+  useNotificationsMarkSeenOnVisit();
 
   const entries = useMemo(() => {
     const flat = flattenNotifications(data);
@@ -35,13 +37,14 @@ export default function NotificationsPage() {
 
   const onOpen = useCallback(
     (entry: NotificationFeedEntry) => {
-      for (const id of getNotificationEntryIds(entry)) {
+      const unreadIds = getNotificationEntryIds(entry).filter((id) => {
         const item =
           entry.kind === "single"
             ? entry.item
             : entry.group.items.find((i) => i.id === id);
-        if (item && !item.isRead) markRead.mutate(id);
-      }
+        return item && !item.isRead;
+      });
+      if (unreadIds.length) markRead.mutate(unreadIds);
     },
     [markRead],
   );

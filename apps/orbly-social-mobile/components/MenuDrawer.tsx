@@ -1,4 +1,8 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import {
+  useConversationsUnreadCount,
+  useNotificationUnreadCount,
+} from "@orbly/features";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
@@ -14,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { NavCountBadge } from "@/components/ui/NavCountBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { OrblyColors } from "@/constants/Colors";
 import { useDeviceAccountsStore } from "@/lib/device-accounts-store";
@@ -29,8 +34,18 @@ const NAV = [
   { href: "/(tabs)/live" as const, label: "Canlı", icon: "microphone" as const },
   { href: "/orbits" as const, label: "Orbit'ler", icon: "star" as const },
   { href: "/bookmarks" as const, label: "Yer İmleri", icon: "bookmark-o" as const },
-  { href: "/(tabs)/notifications" as const, label: "Bildirimler", icon: "bell-o" as const },
-  { href: "/(tabs)/messages" as const, label: "Mesajlar", icon: "envelope-o" as const },
+  {
+    href: "/(tabs)/notifications" as const,
+    label: "Bildirimler",
+    icon: "bell-o" as const,
+    badge: "notifications" as const,
+  },
+  {
+    href: "/(tabs)/messages" as const,
+    label: "Mesajlar",
+    icon: "envelope-o" as const,
+    badge: "messages" as const,
+  },
 ];
 
 const NAV_SECONDARY = [
@@ -50,6 +65,8 @@ export function MenuDrawer({
   const logout = useAuthStore((s) => s.logout);
   const removeAccount = useDeviceAccountsStore((s) => s.removeAccount);
   const slide = useRef(new Animated.Value(-DRAWER_W)).current;
+  const { data: notifUnread = 0 } = useNotificationUnreadCount();
+  const { data: msgUnread = 0 } = useConversationsUnreadCount();
 
   useEffect(() => {
     Animated.timing(slide, {
@@ -123,12 +140,21 @@ export function MenuDrawer({
               <FontAwesome name="user-o" size={24} color={OrblyColors.textPrimary} />
               <Text style={styles.navLabel}>Profil</Text>
             </Pressable>
-            {NAV.map((item) => (
-              <Pressable key={item.href} style={styles.navRow} onPress={() => go(item.href)}>
-                <FontAwesome name={item.icon} size={24} color={OrblyColors.textPrimary} />
-                <Text style={styles.navLabel}>{item.label}</Text>
-              </Pressable>
-            ))}
+            {NAV.map((item) => {
+              const badgeCount =
+                item.badge === "notifications"
+                  ? notifUnread
+                  : item.badge === "messages"
+                    ? msgUnread
+                    : 0;
+              return (
+                <Pressable key={item.href} style={styles.navRow} onPress={() => go(item.href)}>
+                  <FontAwesome name={item.icon} size={24} color={OrblyColors.textPrimary} />
+                  <Text style={styles.navLabel}>{item.label}</Text>
+                  <NavCountBadge count={badgeCount} />
+                </Pressable>
+              );
+            })}
             <View style={styles.divider} />
             {NAV_SECONDARY.map((item) => (
               <Pressable key={item.href} style={styles.navRow} onPress={() => go(item.href)}>
@@ -185,7 +211,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  navLabel: { fontSize: 20, fontWeight: "700", color: OrblyColors.textPrimary },
+  navLabel: { flex: 1, fontSize: 20, fontWeight: "700", color: OrblyColors.textPrimary },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: OrblyColors.border,

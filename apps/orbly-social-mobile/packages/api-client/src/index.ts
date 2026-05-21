@@ -420,9 +420,27 @@ export function createApiClient(options: ApiClientOptions) {
           hasMore: boolean;
         }>(`/v1/notifications/${q ? `?${q}` : ""}`);
       },
-      read: (notificationId: string) =>
-        callRpc<{ success: boolean }>("notifications.read", { notificationId }),
-      readAll: () => callRpc<{ success: boolean }>("notifications.readAll", {}),
+      read: async (notificationId: string) => {
+        try {
+          return await callRpc<{ success: boolean }>("notifications.read", { notificationId });
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<{ success: boolean }>(
+            `/v1/notifications/${encodeURIComponent(notificationId)}/read`,
+            { method: "POST" },
+          );
+        }
+      },
+      readAll: async () => {
+        try {
+          return await callRpc<{ success: boolean }>("notifications.readAll", {});
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<{ success: boolean }>("/v1/notifications/read-all", {
+            method: "POST",
+          });
+        }
+      },
     },
     bookmarks: {
       list: (cursor?: string) =>
@@ -610,3 +628,24 @@ export interface LiveEndResponse {
 
 export type ApiClient = ReturnType<typeof createApiClient>;
 export { formatUserError } from "./errors";
+
+/** Kayıtlı hesap rozeti — cihazdaki diğer oturumlar için hafif istek */
+export async function fetchNotificationsUnreadCount(
+  baseUrl: string,
+  accessToken: string,
+): Promise<number> {
+  const root = baseUrl.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${root}/v1/notifications/`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) return 0;
+    const json = (await res.json()) as { unreadCount?: number };
+    return typeof json.unreadCount === "number" ? json.unreadCount : 0;
+  } catch {
+    return 0;
+  }
+}

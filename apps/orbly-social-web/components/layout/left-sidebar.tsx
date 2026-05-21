@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AccountSwitcher } from "@/components/auth/account-switcher";
+import { MessageNavBadge } from "@/components/messages/message-nav-badge";
 import { NotificationNavBadge } from "@/components/notifications/notification-nav-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export function LeftSidebar() {
                       )}
                     />
                     {href === "/notifications" ? <NotificationNavBadge /> : null}
+                    {href === "/messages" ? <MessageNavBadge /> : null}
                   </span>
                   <span className="hidden xl:inline text-[20px] leading-6">{label}</span>
                 </Link>

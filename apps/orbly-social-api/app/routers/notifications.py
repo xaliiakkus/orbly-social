@@ -1,6 +1,7 @@
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Query
 
+from app.commands.notifications_cmds import read_all, read_one
 from app.deps import UserId
 from app.models.like import Like
 from app.models.notification import Notification
@@ -11,6 +12,16 @@ from app.services.serializers import _ts, user_out
 from app.utils import parse_limit
 
 router = APIRouter()
+
+
+@router.post("/read-all")
+async def rest_read_all_notifications(user_id: UserId):
+    return await read_all(user_id, {})
+
+
+@router.post("/{notification_id}/read")
+async def rest_read_notification(user_id: UserId, notification_id: str):
+    return await read_one(user_id, {"notificationId": notification_id})
 
 
 @router.get("")

@@ -1,6 +1,7 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { formatNavBadgeCount, useSavedAccountsNotificationUnread } from "@orbly/features";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AccountLimitModal } from "@/components/AccountLimitModal";
@@ -10,6 +11,7 @@ import {
   MAX_DEVICE_ACCOUNTS,
   useDeviceAccountsStore,
 } from "@/lib/device-accounts-store";
+import { getApiBaseUrl } from "@/lib/api-url";
 import { restoreSavedAccount } from "@/lib/restore-saved-account";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -36,6 +38,7 @@ export function AccountSwitcher({
 }) {
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.user);
+  const sessionToken = useAuthStore((s) => s.accessToken);
   const accounts = useDeviceAccountsStore((s) => s.accounts);
   const canAddNewAccount = useDeviceAccountsStore((s) => s.canAddNewAccount);
   const [limitOpen, setLimitOpen] = useState(false);
@@ -85,20 +88,34 @@ export function AccountSwitcher({
     router.push("/login?addAccount=1");
   };
 
-  const list =
-    accounts.length > 0
-      ? accounts
-      : currentUser
-        ? [
-            {
-              userId: currentUser.id,
-              user: currentUser,
-              accessToken: "",
-              refreshToken: "",
-              savedAt: "",
-            },
-          ]
-        : [];
+  const list = useMemo(() => {
+    const base =
+      accounts.length > 0
+        ? accounts
+        : currentUser
+          ? [
+              {
+                userId: currentUser.id,
+                user: currentUser,
+                accessToken: "",
+                refreshToken: "",
+                savedAt: "",
+              },
+            ]
+          : [];
+    return base.map((a) => ({
+      ...a,
+      accessToken:
+        a.userId === activeId && sessionToken ? sessionToken : a.accessToken,
+    }));
+  }, [accounts, currentUser, activeId, sessionToken]);
+
+  const unreadByAccount = useSavedAccountsNotificationUnread(
+    list.map((a) => ({ userId: a.userId, accessToken: a.accessToken })),
+    activeId,
+    getApiBaseUrl(),
+    { enabled: list.length > 0 },
+  );
 
   return (
     <>
@@ -108,6 +125,7 @@ export function AccountSwitcher({
         </Text>
         {list.map((acc) => {
           const active = acc.userId === activeId;
+          const notifBadge = formatNavBadgeCount(unreadByAccount[acc.userId] ?? 0);
           return (
             <Pressable
               key={acc.userId}
@@ -118,7 +136,14 @@ export function AccountSwitcher({
                 loginMode && active ? "Bu hesapla devam et" : undefined
               }
             >
-              <Avatar uri={acc.user.avatarUrl} name={acc.user.displayName} />
+              <View style={styles.avatarWrap}>
+                <Avatar uri={acc.user.avatarUrl} name={acc.user.displayName} />
+                {notifBadge ? (
+                  <View style={styles.avatarBadge}>
+                    <Text style={styles.avatarBadgeText}>{notifBadge}</Text>
+                  </View>
+                ) : null}
+              </View>
               <View style={styles.meta}>
                 <Text style={styles.name} numberOfLines={1}>
                   {acc.user.displayName}
@@ -167,6 +192,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   rowActive: { backgroundColor: OrblyColors.bgHover },
+  avatarWrap: { position: "relative" },
+  avatarBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: OrblyColors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: OrblyColors.bgPrimary,
+  },
+  avatarBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   avatar: {
     width: 40,
     height: 40,

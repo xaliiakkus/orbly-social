@@ -2,20 +2,35 @@ import type { MessageItem } from "@orbly/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { useApi, useOrblyQueryClient } from "../context";
+import {
+  markConversationReadInCache,
+  syncConversationsUnreadCount,
+} from "../realtime/conversation-cache";
 
 export function useConversations() {
   const api = useApi();
+  const qc = useOrblyQueryClient();
   return useQuery({
     queryKey: ["conversations"],
-    queryFn: () => api.conversations.list(),
+    queryFn: async () => {
+      const res = await api.conversations.list();
+      qc.setQueryData(["conversations"], res);
+      syncConversationsUnreadCount(qc);
+      return res;
+    },
   });
 }
 
 export function useConversationMessages(conversationId: string) {
   const api = useApi();
+  const qc = useOrblyQueryClient();
   return useQuery({
     queryKey: ["messages", conversationId],
-    queryFn: () => api.conversations.messages(conversationId),
+    queryFn: async () => {
+      const res = await api.conversations.messages(conversationId);
+      markConversationReadInCache(qc, conversationId);
+      return res;
+    },
     enabled: !!conversationId,
   });
 }

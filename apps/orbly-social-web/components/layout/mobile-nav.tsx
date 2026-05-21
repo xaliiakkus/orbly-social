@@ -4,6 +4,7 @@ import { Bell, Home, Mail, Radio, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { MessageNavBadge } from "@/components/messages/message-nav-badge";
 import { NotificationNavBadge } from "@/components/notifications/notification-nav-badge";
 import { cn } from "@/lib/cn";
 
@@ -47,6 +48,9 @@ export function MobileNav() {
               />
               {href === "/notifications" ? (
                 <NotificationNavBadge className="top-1 left-[calc(50%+8px)]" />
+              ) : null}
+              {href === "/messages" ? (
+                <MessageNavBadge className="top-1 left-[calc(50%+8px)]" />
               ) : null}
             </Link>
           );

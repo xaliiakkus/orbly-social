@@ -19,6 +19,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { AccountSwitcher } from "@/components/auth/account-switcher";
+import { MessageNavBadge } from "@/components/messages/message-nav-badge";
+import { NotificationNavBadge } from "@/components/notifications/notification-nav-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { useDeviceAccountsStore } from "@/lib/device-accounts-store";
 import { useAuthStore } from "@/lib/auth-store";
@@ -28,8 +30,8 @@ import { cn } from "@/lib/cn";
 const navLinks = [
   { href: "/home", label: "Ana Sayfa", icon: Home },
   { href: "/explore", label: "Keşfet", icon: Search },
-  { href: "/notifications", label: "Bildirimler", icon: Bell },
-  { href: "/messages", label: "Mesajlar", icon: Mail },
+  { href: "/notifications", label: "Bildirimler", icon: Bell, badge: "notifications" as const },
+  { href: "/messages", label: "Mesajlar", icon: Mail, badge: "messages" as const },
   { href: "/live", label: "Canlı", icon: Radio },
   { href: "/orbits", label: "Orbit'ler", icon: Sparkles },
   { href: "/bookmarks", label: "Yer İmleri", icon: Bookmark },
@@ -138,15 +140,23 @@ export function MobileMenuDrawer({
             <User className="h-[26px] w-[26px] shrink-0" />
             Profil
           </Link>
-          {navLinks.map(({ href, label, icon: Icon }) => (
+          {navLinks.map(({ href, label, icon: Icon, badge }) => (
             <Link
               key={href}
               href={href}
               onClick={onClose}
               className="flex items-center gap-5 px-5 py-3.5 text-[20px] font-bold hover:bg-bg-hover transition-colors"
             >
-              <Icon className="h-[26px] w-[26px] shrink-0" />
-              {label}
+              <span className="relative shrink-0">
+                <Icon className="h-[26px] w-[26px]" />
+                {badge === "notifications" ? (
+                  <NotificationNavBadge className="top-0 left-[22px] min-w-[18px] h-[18px] text-[10px] leading-[18px]" />
+                ) : null}
+                {badge === "messages" ? (
+                  <MessageNavBadge className="top-0 left-[22px] min-w-[18px] h-[18px] text-[10px] leading-[18px]" />
+                ) : null}
+              </span>
+              <span className="flex-1">{label}</span>
             </Link>
           ))}
         </nav>

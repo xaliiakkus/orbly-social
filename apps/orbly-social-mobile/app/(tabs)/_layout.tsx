@@ -1,5 +1,5 @@
 import { Ionicons } from "@/components/ui/icons";
-import { useNotificationUnreadCount } from "@orbly/features";
+import { formatNavBadgeCount, useConversationsUnreadCount, useNotificationUnreadCount } from "@orbly/features";
 import { Tabs } from "expo-router";
 import { StyleSheet } from "react-native";
 
@@ -20,8 +20,10 @@ function tabIcon(
 
 export default function TabLayout() {
   const authed = useAuthStore((s) => !!s.accessToken);
-  const { data: unread = 0 } = useNotificationUnreadCount({ enabled: authed });
-  const badge = unread > 0 ? (unread > 99 ? "99+" : String(unread)) : undefined;
+  const { data: notifUnread = 0 } = useNotificationUnreadCount({ enabled: authed });
+  const { data: msgUnread = 0 } = useConversationsUnreadCount({ enabled: authed });
+  const notifBadge = formatNavBadgeCount(notifUnread);
+  const msgBadge = formatNavBadgeCount(msgUnread);
 
   return (
     <Tabs
@@ -66,7 +68,7 @@ export default function TabLayout() {
         options={{
           title: "Bildirimler",
           tabBarIcon: tabIcon("notifications-outline", "notifications"),
-          tabBarBadge: badge,
+          tabBarBadge: notifBadge,
           tabBarBadgeStyle: {
             backgroundColor: OrblyColors.accent,
             color: "#fff",
@@ -80,6 +82,13 @@ export default function TabLayout() {
         options={{
           title: "Mesajlar",
           tabBarIcon: tabIcon("mail-outline", "mail"),
+          tabBarBadge: msgBadge,
+          tabBarBadgeStyle: {
+            backgroundColor: OrblyColors.accent,
+            color: "#fff",
+            fontSize: 11,
+            minWidth: 18,
+          },
         }}
       />
       <Tabs.Screen name="profile" options={{ href: null }} />

@@ -2,7 +2,6 @@ import {
   convoRoom,
   isMessageMine,
   resolveMessageSender,
-  SOCKET_EVENTS,
   useConversationMessages,
   useConversations,
   useSendMessage,
@@ -30,7 +29,6 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { OrblyColors } from "@/constants/Colors";
 import { useAuthStore } from "@/lib/auth-store";
 import { formatRelativeTime } from "@/lib/format";
-import { getSocket } from "@/lib/socket";
 import { uploadImage } from "@/lib/upload";
 import { useMobileSocketRooms } from "@/lib/use-socket-rooms";
 import type { MessageItem, UserPublic } from "@orbly/types";
@@ -104,7 +102,7 @@ export default function ChatScreen() {
   const [text, setText] = useState("");
   const listRef = useRef<FlatList<MessageItem>>(null);
   const { data: convos } = useConversations();
-  const { data, refetch } = useConversationMessages(convoId);
+  const { data } = useConversationMessages(convoId);
   const send = useSendMessage(convoId);
 
   const participant = useMemo(() => {
@@ -117,18 +115,6 @@ export default function ChatScreen() {
 
   useMobileSocketRooms(convoId ? [convoRoom(convoId)] : []);
 
-  useEffect(() => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token || !convoId) return;
-    const s = getSocket(token);
-    const handler = (payload: { conversationId?: string }) => {
-      if (payload.conversationId === convoId) void refetch();
-    };
-    s.on(SOCKET_EVENTS.message, handler);
-    return () => {
-      s.off(SOCKET_EVENTS.message, handler);
-    };
-  }, [convoId, refetch]);
 
   const scrollToBottom = (animated = true) => {
     requestAnimationFrame(() => {

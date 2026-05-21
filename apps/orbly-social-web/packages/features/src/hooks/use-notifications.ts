@@ -1,10 +1,12 @@
+import { useEffect, useRef } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NotificationItem } from "@orbly/types";
 
 import { useApi, useOrblyQueryClient } from "../context";
 import {
-  bumpNotificationUnreadCount,
+  markNotificationsReadInCache,
   setNotificationUnreadCount,
+  syncUnreadCountFromNotificationCache,
 } from "../realtime/notification-cache";
 
 export function useNotificationsFeed(options?: { enabled?: boolean }) {
@@ -26,19 +28,27 @@ export function useNotificationsFeed(options?: { enabled?: boolean }) {
 }
 
 /** Sekme rozeti — hafif meta sorgusu */
-export function useNotificationUnreadCount(options?: { enabled?: boolean }) {
+export function useNotificationUnreadCount(options?: {
+  enabled?: boolean;
+  refetchOnMount?: boolean;
+}) {
   const api = useApi();
   const qc = useQueryClient();
   return useQuery({
     queryKey: ["notifications", "unread-count"],
     queryFn: async () => {
+      const badge = qc.getQueryData<number>(["notifications", "unread-count"]);
+      if (typeof badge === "number") return badge;
       const cached = qc.getQueryData<{ pages: Array<{ unreadCount: number }> }>(["notifications"]);
-      if (cached?.pages[0]) return cached.pages[0].unreadCount;
+      if (cached?.pages[0] && typeof cached.pages[0].unreadCount === "number") {
+        return cached.pages[0].unreadCount;
+      }
       const res = await api.notifications.list();
       return res.unreadCount;
     },
     enabled: options?.enabled ?? true,
     staleTime: 0,
+    refetchOnMount: options?.refetchOnMount ?? true,
     refetchOnWindowFocus: true,
   });
 }
@@ -49,40 +59,33 @@ export function flattenNotifications(
   return data?.pages.flatMap((p) => p.data) ?? [];
 }
 
+function normalizeReadIds(notificationIds: string | string[]): string[] {
+  return Array.isArray(notificationIds) ? notificationIds : [notificationIds];
+}
+
 export function useMarkNotificationRead() {
   const api = useApi();
   const qc = useOrblyQueryClient();
   return useMutation({
-    mutationFn: (notificationId: string) => api.notifications.read(notificationId),
-    onMutate: async (notificationId) => {
+    mutationFn: async (notificationIds: string | string[]) => {
+      const ids = normalizeReadIds(notificationIds);
+      await Promise.all(ids.map((id) => api.notifications.read(id)));
+    },
+    onMutate: async (notificationIds) => {
       await qc.cancelQueries({ queryKey: ["notifications"] });
       const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(["notifications"]);
-      const wasUnread = prev?.pages.some((page) =>
-        page.data.some((n) => n.id === notificationId && !n.isRead),
-      );
-      if (prev) {
-        qc.setQueryData(["notifications"], {
-          ...prev,
-          pages: prev.pages.map((page) => ({
-            ...page,
-            data: page.data.map((n) =>
-              n.id === notificationId ? { ...n, isRead: true } : n,
-            ),
-            unreadCount: Math.max(
-              0,
-              page.unreadCount - (page.data.some((n) => n.id === notificationId && !n.isRead) ? 1 : 0),
-            ),
-          })),
-        });
-      }
-      if (wasUnread) bumpNotificationUnreadCount(qc, -1);
+      const ids = normalizeReadIds(notificationIds);
+      markNotificationsReadInCache(qc, ids);
       return { prev };
     },
-    onError: (_e, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["notifications"], ctx.prev);
+    onError: (_e, _ids, ctx) => {
+      if (ctx?.prev) {
+        qc.setQueryData(["notifications"], ctx.prev);
+        syncUnreadCountFromNotificationCache(qc);
+      }
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: ["notifications"] });
+    onSuccess: () => {
+      syncUnreadCountFromNotificationCache(qc);
     },
   });
 }
@@ -94,25 +97,36 @@ export function useReadAllNotifications() {
     mutationFn: () => api.notifications.readAll(),
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: ["notifications"] });
-      setNotificationUnreadCount(qc, 0);
       const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(["notifications"]);
-      if (prev) {
-        qc.setQueryData(["notifications"], {
-          ...prev,
-          pages: prev.pages.map((page) => ({
-            ...page,
-            data: page.data.map((n) => ({ ...n, isRead: true })),
-            unreadCount: 0,
-          })),
-        });
-      }
+      markNotificationsReadInCache(qc);
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["notifications"], ctx.prev);
+      if (ctx?.prev) {
+        qc.setQueryData(["notifications"], ctx.prev);
+        syncUnreadCountFromNotificationCache(qc);
+      }
     },
-    onSettled: () => void qc.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      setNotificationUnreadCount(qc, 0);
+    },
   });
+}
+
+/** Bildirimler sekmesine girildiğinde rozeti sıfırla (X benzeri) */
+export function useNotificationsMarkSeenOnVisit(enabled = true) {
+  const { mutate } = useReadAllNotifications();
+  const ran = useRef(false);
+
+  useEffect(() => {
+    if (!enabled || ran.current) return;
+    ran.current = true;
+    mutate(undefined, {
+      onSettled: () => {
+        ran.current = false;
+      },
+    });
+  }, [enabled, mutate]);
 }
 
 /** @deprecated useNotificationsFeed */

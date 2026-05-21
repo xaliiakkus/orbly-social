@@ -1,9 +1,16 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
-import type { MessageItem, PaginatedResponse, PostPublic } from "@orbly/types";
+import type { PaginatedResponse, PostPublic } from "@orbly/types";
 
-import type { MessageEvent, PostStatsEvent } from "./types";
+import type { PostStatsEvent } from "./types";
 
 type FeedPage = PaginatedResponse<PostPublic>;
+
+/** API feed kartı — gömülü repost ve kullanıcı repost bayrakları */
+type PostWithRepostEmbed = PostPublic & {
+  repostOf?: PostPublic;
+  repostedByMe?: boolean;
+  myRepostId?: string;
+};
 
 function patchPostInPages(
   pages: FeedPage[],
@@ -78,11 +85,13 @@ export function applyPostRepostToCache(
     repostCount: number;
   },
 ) {
-  const applyToPost = (p: PostPublic): PostPublic => {
+  const applyToPost = (raw: PostPublic): PostPublic => {
+    const p = raw as PostWithRepostEmbed;
     const isTarget = p.id === targetPostId;
-    const embedTarget = p.repostOf?.id === targetPostId;
-    if (!isTarget && !embedTarget) return p;
-    const next: PostPublic = {
+    const embedTarget =
+      p.repostOf?.id === targetPostId || p.repostOfId === targetPostId;
+    if (!isTarget && !embedTarget) return raw;
+    const next: PostWithRepostEmbed = {
       ...p,
       repostedByMe: patch.repostedByMe,
       myRepostId: patch.myRepostId ?? undefined,
@@ -206,12 +215,3 @@ export function applyPostStatsToCache(
   );
 }
 
-export function appendMessageToCache(qc: QueryClient, event: MessageEvent) {
-  const { conversationId, message } = event;
-  qc.setQueryData<{ data: MessageItem[] }>(["messages", conversationId], (old) => {
-    if (!old?.data) return { data: [message] };
-    if (old.data.some((m) => m.id === message.id)) return old;
-    return { data: [...old.data, message] };
-  });
-  void qc.invalidateQueries({ queryKey: ["conversations"] });
-}

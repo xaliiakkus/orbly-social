@@ -6,9 +6,11 @@ import {
   NOTIFICATION_TABS,
   useMarkNotificationRead,
   useNotificationsFeed,
+  useReadAllNotifications,
   type NotificationFeedEntry,
   type NotificationTabId,
 } from "@orbly/features";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -39,6 +41,13 @@ export default function NotificationsScreen() {
     isRefetching,
   } = useNotificationsFeed();
   const markRead = useMarkNotificationRead();
+  const { mutate: markAllSeen } = useReadAllNotifications();
+
+  useFocusEffect(
+    useCallback(() => {
+      markAllSeen();
+    }, [markAllSeen]),
+  );
 
   const entries = useMemo(() => {
     const flat = flattenNotifications(data);
@@ -47,13 +56,14 @@ export default function NotificationsScreen() {
 
   const onOpen = useCallback(
     (entry: NotificationFeedEntry) => {
-      for (const id of getNotificationEntryIds(entry)) {
+      const unreadIds = getNotificationEntryIds(entry).filter((id) => {
         const item =
           entry.kind === "single"
             ? entry.item
             : entry.group.items.find((i) => i.id === id);
-        if (item && !item.isRead) markRead.mutate(id);
-      }
+        return item && !item.isRead;
+      });
+      if (unreadIds.length) markRead.mutate(unreadIds);
     },
     [markRead],
   );
