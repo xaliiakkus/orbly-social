@@ -12,8 +12,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { EmptyState } from "@/components/EmptyState";
 import { ExploreFeaturedCard } from "@/components/explore/ExploreFeaturedCard";
 import { ExploreHeader } from "@/components/explore/ExploreHeader";
@@ -38,7 +36,6 @@ type ExploreTab = (typeof EXPLORE_TABS)[number]["id"];
 
 export default function ExploreScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [tab, setTab] = useState<ExploreTab>("for-you");
@@ -84,7 +81,7 @@ export default function ExploreScreen() {
   if (submitted.length >= 2) {
     return (
       <TabScaffold>
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.container}>
           {header}
           {search.isLoading ? (
             <ActivityIndicator style={styles.loader} color={OrblyColors.accent} />
@@ -230,7 +227,7 @@ export default function ExploreScreen() {
 
   return (
     <TabScaffold>
-      <View style={[styles.container, styles.flex, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.flex]}>
         {header}
         <View style={styles.flex}>{renderTabBody()}</View>
       </View>

@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostPublic } from "@orbly/types";
 
 import { ComposeFab } from "@/components/ComposeFab";
@@ -14,6 +13,7 @@ import { SpacesBanner } from "@/components/SpacesBanner";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { XTabs } from "@/components/ui/XTabs";
 import { OrblyColors } from "@/constants/Colors";
+import { HEADER_CONTENT_MIN_HEIGHT, useHeaderMetrics } from "@/constants/layout";
 import { getSocket } from "@/lib/socket";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -23,7 +23,7 @@ const FEED_TABS = [
 ];
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
+  const header = useHeaderMetrics();
   const router = useRouter();
   const qc = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -60,7 +60,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.topBar, { paddingTop: insets.top }]}>
+      <View style={[styles.topBar, { paddingTop: header.paddingTop }]}>
         <Pressable onPress={() => setMenuOpen(true)} style={styles.sideSlot}>
           {user ? (
             <UserAvatar name={user.displayName} uri={user.avatarUrl} size="sm" />
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 4,
-    minHeight: 48,
+    minHeight: HEADER_CONTENT_MIN_HEIGHT,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: OrblyColors.border,
   },

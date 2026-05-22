@@ -1,8 +1,8 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OrblyColors } from "@/constants/Colors";
+import { useHeaderMetrics } from "@/constants/layout";
 
 type Props = {
   unreadTotal: number;
@@ -28,13 +28,13 @@ export function MessagesInboxHeader({
   onStartChat,
   startPending,
 }: Props) {
-  const insets = useSafeAreaInsets();
+  const header = useHeaderMetrics();
 
   return (
     <View
       style={[
         styles.hero,
-        { paddingTop: insets.top + 8, paddingBottom: 12 },
+        { paddingTop: header.paddingTop, paddingBottom: 12 },
       ]}
     >
       <View style={styles.heroTop}>

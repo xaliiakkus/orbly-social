@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OrblyColors } from "@/constants/Colors";
+import { HEADER_CONTENT_MIN_HEIGHT, useHeaderMetrics } from "@/constants/layout";
 
 /** X tarzı sekme sayfası başlığı (Bildirimler, Mesajlar, …) */
 export function TabPageHeader({
@@ -12,9 +12,9 @@ export function TabPageHeader({
   title: string;
   right?: ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
+  const header = useHeaderMetrics();
   return (
-    <View style={[styles.bar, { paddingTop: insets.top }]}>
+    <View style={[styles.bar, { paddingTop: header.paddingTop }]}>
       <Text style={styles.title}>{title}</Text>
       {right ? <View style={styles.right}>{right}</View> : null}
     </View>
@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 53,
+    minHeight: HEADER_CONTENT_MIN_HEIGHT,
     paddingHorizontal: 16,
     paddingBottom: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,

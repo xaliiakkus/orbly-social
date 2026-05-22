@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { OrblyColors } from "@/constants/Colors";
+import { useHeaderMetrics } from "@/constants/layout";
 import { useAuthStore } from "@/lib/auth-store";
 
 export function ExploreHeader({
@@ -23,8 +24,17 @@ export function ExploreHeader({
   onBack?: () => void;
 }) {
   const user = useAuthStore((s) => s.user);
+  const header = useHeaderMetrics();
 
   return (
+    <View
+      style={[
+        styles.shell,
+        {
+          paddingTop: header.paddingTop,
+        },
+      ]}
+    >
     <View style={styles.row}>
       {searchMode ? (
         <Pressable onPress={onBack} hitSlop={12} style={styles.sideBtn}>
@@ -61,10 +71,16 @@ export function ExploreHeader({
         <FontAwesome name="cog" size={22} color={OrblyColors.textPrimary} />
       </Pressable>
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    backgroundColor: OrblyColors.bgPrimary,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: OrblyColors.border,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",

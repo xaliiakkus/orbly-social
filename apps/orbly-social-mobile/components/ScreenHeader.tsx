@@ -2,15 +2,15 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { OrblyColors } from "@/constants/Colors";
+import { HEADER_CONTENT_MIN_HEIGHT, useHeaderMetrics } from "@/constants/layout";
 
 /** KeyboardAvoidingView offset — ScreenHeader + safe area */
 export function useStackHeaderOffset() {
-  const insets = useSafeAreaInsets();
-  return insets.top + 61;
+  const header = useHeaderMetrics();
+  return header.totalMinHeight + 8;
 }
-
-import { OrblyColors } from "@/constants/Colors";
 
 /** X tarzı stack başlığı */
 export function ScreenHeader({
@@ -27,13 +27,13 @@ export function ScreenHeader({
   largeTitle?: boolean;
 }) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const header = useHeaderMetrics();
 
   return (
     <View
       style={[
         styles.bar,
-        { paddingTop: insets.top },
+        { paddingTop: header.paddingTop },
         largeTitle && styles.barLarge,
       ]}
     >
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 53,
+    minHeight: HEADER_CONTENT_MIN_HEIGHT,
     paddingHorizontal: 8,
     paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,

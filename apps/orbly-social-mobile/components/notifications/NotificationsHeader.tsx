@@ -1,19 +1,19 @@
 import { Ionicons } from "@/components/ui/icons";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { OrblyColors } from "@/constants/Colors";
+import { HEADER_CONTENT_MIN_HEIGHT, useHeaderMetrics } from "@/constants/layout";
 import { useAuthStore } from "@/lib/auth-store";
 
 export function NotificationsHeader({ onMenuOpen }: { onMenuOpen?: () => void }) {
-  const insets = useSafeAreaInsets();
+  const header = useHeaderMetrics();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
 
   return (
-    <View style={[styles.bar, { paddingTop: insets.top }]}>
+    <View style={[styles.bar, { paddingTop: header.paddingTop }]}>
       {user ? (
         <Pressable onPress={onMenuOpen} style={styles.side} hitSlop={8}>
           <UserAvatar name={user.displayName} uri={user.avatarUrl} size="sm" />
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 53,
+    minHeight: HEADER_CONTENT_MIN_HEIGHT,
     paddingHorizontal: 12,
     paddingBottom: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
