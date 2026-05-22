@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { useAuthStore } from "@/lib/auth-store";
-import { getSocket, reconnectSocket } from "@/lib/socket";
+import { getSocket } from "@/lib/socket";
 import { ensureFreshAccessToken } from "@/lib/token-manager";
 
 /** Yalnızca oturum açıkken socket bağlanır (anonim bağlantı user odasına girmez). */
@@ -13,10 +13,17 @@ export function SocketBootstrap() {
     if (!hydrated || !accessToken) return;
 
     let socket: ReturnType<typeof getSocket> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const onConnectError = () => {
-      void ensureFreshAccessToken().then((token) => {
-        if (token) reconnectSocket(token);
-      });
+      if (retryTimer) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void ensureFreshAccessToken().then((token) => {
+          if (!token) return;
+          const s = getSocket(token);
+          if (!s.connected) s.connect();
+        });
+      }, 2500);
     };
 
     void ensureFreshAccessToken().then((token) => {
@@ -26,6 +33,7 @@ export function SocketBootstrap() {
     });
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
       socket?.off("connect_error", onConnectError);
     };
   }, [hydrated, accessToken]);

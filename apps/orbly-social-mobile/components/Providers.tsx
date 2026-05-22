@@ -1,6 +1,7 @@
 import { OrblyProvider } from "@orbly/features";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemedAppRoot } from "@/components/OrblyThemeProvider";
 import { AuthBootstrap } from "@/components/AuthBootstrap";
@@ -13,6 +14,7 @@ import { uploadImage } from "@/lib/upload";
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient());
   return (
+    <SafeAreaProvider>
     <QueryClientProvider client={client}>
       <OrblyProvider
         api={api}
@@ -30,5 +32,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         </ThemedAppRoot>
       </OrblyProvider>
     </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

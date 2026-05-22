@@ -14,7 +14,7 @@ import {
 } from "@orbly/features";
 import { formatUserError } from "@orbly/api-client";
 import type { PostPublic } from "@orbly/types";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "@/components/ui/expo-image";
 import { useRouter } from "expo-router";
 import { memo, useContext, useEffect, useState, type ComponentProps } from "react";
@@ -38,29 +38,64 @@ import { formatCount, formatRelativeTime } from "@/lib/format";
 import { resolveMediaUrl } from "@/lib/media-url";
 import { useMobileSocketRooms } from "@/lib/use-socket-rooms";
 
-function PostAction({
-  icon,
+const POST_ICON_SIZE = 18;
+
+type IonName = ComponentProps<typeof Ionicons>["name"];
+
+/** Web/Lucide (X tarzı) ile hizalı Ionicons adları */
+const PostIcons = {
+  reply: "chatbubble-outline",
+  repost: "repeat-outline",
+  repostActive: "repeat",
+  like: "heart-outline",
+  likeActive: "heart",
+  views: "stats-chart-outline",
+  bookmark: "bookmark-outline",
+  bookmarkActive: "bookmark",
+  menu: "ellipsis-horizontal",
+  verified: "checkmark-circle",
+  live: "radio-outline",
+} as const satisfies Record<string, IonName>;
+
+function PostActionButton({
+  name,
+  activeName,
   count,
   color = OrblyColors.textSecondary,
   active,
   onPress,
   disabled,
 }: {
-  icon: ComponentProps<typeof FontAwesome>["name"];
+  name: IonName;
+  activeName?: IonName;
   count?: number;
   color?: string;
   active?: boolean;
   onPress?: () => void;
   disabled?: boolean;
 }) {
+  const iconColor = active ? color : OrblyColors.textSecondary;
+  const iconName = active && activeName ? activeName : name;
   return (
     <Pressable style={styles.actionBtn} onPress={onPress} hitSlop={8} disabled={disabled}>
-      <FontAwesome name={icon} size={17} color={active ? color : OrblyColors.textSecondary} />
+      <Ionicons name={iconName} size={POST_ICON_SIZE} color={iconColor} />
       {count !== undefined && count > 0 ? (
         <Text style={[styles.actionCount, active && { color }]}>{formatCount(count)}</Text>
       ) : null}
     </Pressable>
   );
+}
+
+function PostIcon({
+  name,
+  size,
+  color,
+}: {
+  name: IonName;
+  size: number;
+  color: string;
+}) {
+  return <Ionicons name={name} size={size} color={color} />;
 }
 
 function postCardPropsEqual(
@@ -153,15 +188,11 @@ function PostCardInner({
     post.myRepostId,
   );
   const ownPost = viewer?.id === repostTarget.author.id;
-  const { recordView } = usePostView(
-    repostTargetId,
-    viewer?.id,
-    repostTarget.author.id,
-  );
+  const postView = usePostView(repostTargetId, viewer?.id, repostTarget.author.id);
 
   useEffect(() => {
-    recordView();
-  }, [repostTargetId, recordView]);
+    postView.recordView();
+  }, [repostTargetId, postView.recordView]);
 
   const threadRootId = threadRootIdProp ?? post.replyToId ?? post.id;
   const openPost = () => router.push(`/post/${threadRootId}`);
@@ -238,7 +269,7 @@ function PostCardInner({
     >
       {isRepostCard ? (
         <View style={styles.repostRow}>
-          <FontAwesome name="retweet" size={12} color={OrblyColors.repost} />
+          <PostIcon name={PostIcons.repostActive} size={12} color={OrblyColors.repost} />
           <Text style={styles.repostLabel}>{post.author.displayName} yeniden paylaştı</Text>
         </View>
       ) : null}
@@ -267,12 +298,13 @@ function PostCardInner({
                   {post.author.displayName}
                 </Text>
                 {post.author.verified ? (
-                  <FontAwesome
-                    name="check-circle"
-                    size={15}
-                    color={OrblyColors.accent}
-                    style={styles.verified}
-                  />
+                  <View style={styles.verified}>
+                    <PostIcon
+                      name={PostIcons.verified}
+                      size={15}
+                      color={OrblyColors.accent}
+                    />
+                  </View>
                 ) : null}
               </View>
               <Text style={styles.meta} numberOfLines={1}>
@@ -289,8 +321,8 @@ function PostCardInner({
                   hitSlop={12}
                   style={styles.menuBtn}
                 >
-                  <FontAwesome
-                    name="ellipsis-h"
+                  <PostIcon
+                    name={PostIcons.menu}
                     size={17}
                     color={OrblyColors.textSecondary}
                   />
@@ -303,8 +335,8 @@ function PostCardInner({
                 }}
                 hitSlop={12}
               >
-                <FontAwesome
-                  name={bookmarked ? "bookmark" : "bookmark-o"}
+                <PostIcon
+                  name={bookmarked ? PostIcons.bookmarkActive : PostIcons.bookmark}
                   size={17}
                   color={bookmarked ? OrblyColors.accent : OrblyColors.textSecondary}
                 />
@@ -320,7 +352,7 @@ function PostCardInner({
                 router.push(`/live/${post.liveBroadcastId}/ozet`);
               }}
             >
-              <FontAwesome name="microphone" size={12} color={OrblyColors.like} />
+              <PostIcon name={PostIcons.live} size={12} color={OrblyColors.like} />
               <Text style={styles.liveBadgeText}>Yayın özetini gör</Text>
             </Pressable>
           ) : null}
@@ -382,15 +414,16 @@ function PostCardInner({
           ) : null}
 
           <View style={styles.actions} onStartShouldSetResponder={() => true}>
-            <PostAction
-              icon="comment-o"
+            <PostActionButton
+              name={PostIcons.reply}
               count={post.stats.replyCount}
               color={OrblyColors.reply}
               active={highlightReply}
               onPress={openReply}
             />
-            <PostAction
-              icon="retweet"
+            <PostActionButton
+              name={PostIcons.repost}
+              activeName={PostIcons.repostActive}
               color={OrblyColors.repost}
               active={reposted}
               onPress={openRepostMenu}
@@ -410,23 +443,22 @@ function PostCardInner({
                 </Text>
               </Pressable>
             ) : null}
-            <PostAction
-              icon={liked ? "heart" : "heart-o"}
+            <PostActionButton
+              name={PostIcons.like}
+              activeName={PostIcons.likeActive}
               count={likeCount}
               color={OrblyColors.like}
               active={liked}
               onPress={() => void toggleLike()}
               disabled={likePending}
             />
-            <PostAction
-              icon="bar-chart"
-              count={
-                repostTarget.stats.viewCount > 0
-                  ? repostTarget.stats.viewCount
-                  : undefined
-              }
-            />
-            <PostAction icon="share-square-o" />
+            {repostTarget.stats.viewCount > 0 ? (
+              <PostActionButton
+                name={PostIcons.views}
+                count={repostTarget.stats.viewCount}
+                disabled
+              />
+            ) : null}
           </View>
         </View>
       </View>

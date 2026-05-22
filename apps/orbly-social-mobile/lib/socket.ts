@@ -68,7 +68,7 @@ export function getSocket(accessToken?: string | null): Socket {
 }
 
 /**
- * Oturum/token yenilemede aynı socket örneğini koru (dinleyiciler kopmasın).
+ * Oturum/token yenilemede socket auth güncellenir; gereksiz disconnect yok.
  * Tam kopma yalnızca çıkışta `disconnectSocket`.
  */
 export function reconnectSocket(accessToken?: string | null) {
@@ -77,10 +77,40 @@ export function reconnectSocket(accessToken?: string | null) {
     disconnectSocket();
     return;
   }
+  const prev = boundToken;
   const s = getSocket(token);
-  if (s.connected) s.disconnect();
-  s.connect();
-  bumpSocketLifecycle();
+  if (!s.connected) s.connect();
+  if (prev !== token || !s.connected) bumpSocketLifecycle();
+}
+
+/** RPC öncesi bağlantının hazır olmasını bekler (AuthBootstrap vb.). */
+export function waitForSocketConnection(
+  sock: Socket = getSocket(),
+  timeoutMs = 15_000,
+): Promise<void> {
+  if (sock.connected) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Socket bağlantı zaman aşımı"));
+    }, timeoutMs);
+    const onConnect = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error("Socket bağlanamadı"));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      sock.off("connect", onConnect);
+      sock.off("connect_error", onError);
+    };
+    sock.once("connect", onConnect);
+    sock.once("connect_error", onError);
+    if (!sock.connected) sock.connect();
+  });
 }
 
 export function disconnectSocket() {

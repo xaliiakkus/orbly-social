@@ -66,7 +66,10 @@ async def register(_user_id: str | None, data: dict[str, Any]) -> dict[str, Any]
 @action("auth.login", public=True)
 async def login(_user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
     body = LoginIn.model_validate(data)
-    user = await User.find_one({"email": body.email.lower()})
+    if "@" in body.login:
+        user = await User.find_one({"email": body.login})
+    else:
+        user = await User.find_one({"username": body.login})
     if not user or not user.passwordHash:
         raise AppError("Invalid credentials", 401)
     if user.isBanned:

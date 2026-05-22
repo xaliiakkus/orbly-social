@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, EmailStr, Field, field_validator, model_validator
 
 _USERNAME_RE = re.compile(r"^[a-z0-9_]+$")
 
@@ -25,8 +25,28 @@ class RegisterIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    email: EmailStr = Field(examples=["info@orbly.social"])
+    """E-posta veya kullanıcı adı (`login`; eski istemciler `email` anahtarını da gönderebilir)."""
+
+    login: str = Field(
+        min_length=3,
+        max_length=255,
+        validation_alias=AliasChoices("login", "email"),
+        examples=["info@orbly.social", "demo"],
+    )
     password: str = Field(examples=["your-password"])
+
+    @field_validator("login")
+    @classmethod
+    def normalize_login(cls, v: str) -> str:
+        v = v.strip()
+        if "@" in v:
+            return v.lower()
+        v = v.lower()
+        if not _USERNAME_RE.match(v):
+            raise ValueError(
+                "Kullanıcı adı yalnızca küçük harf, rakam ve alt çizgi içerebilir"
+            )
+        return v
 
 
 class RefreshIn(BaseModel):

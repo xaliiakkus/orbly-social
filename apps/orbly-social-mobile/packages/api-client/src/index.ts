@@ -190,7 +190,7 @@ export function createApiClient(options: ApiClientOptions) {
         email: string;
         password: string;
       }) => callRpc<AuthResponse>("auth.register", body),
-      login: async (body: { email: string; password: string }) => {
+      login: async (body: { login: string; password: string }) => {
         try {
           return await rpc<AuthResponse>("auth.login", body);
         } catch (e) {

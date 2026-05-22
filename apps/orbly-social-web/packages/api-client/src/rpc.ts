@@ -87,26 +87,43 @@ interface RpcResponse {
   status?: number;
 }
 
+function emitRpc<T>(
+  socket: SocketLike,
+  action: string,
+  data: Record<string, unknown>,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    socket.timeout(30_000).emit("rpc", { action, data }, (err, response) => {
+      if (err instanceof Error) {
+        reject(new RpcError(0, "rpc"));
+        return;
+      }
+      const res = (response ?? err) as RpcResponse | undefined;
+      if (!res?.ok) {
+        reject(new RpcError(res?.status ?? 500, res?.error ?? ""));
+        return;
+      }
+      resolve(res.data as T);
+    });
+  });
+}
+
 export function socketRpc<T>(
   socket: SocketLike,
   action: string,
   data: Record<string, unknown> = {},
 ): Promise<T> {
-  return ensureSocketConnected(socket).then(
-    () =>
-      new Promise<T>((resolve, reject) => {
-        socket.timeout(30_000).emit("rpc", { action, data }, (err, response) => {
-          if (err instanceof Error) {
-            reject(new RpcError(0, "rpc"));
-            return;
-          }
-          const res = (response ?? err) as RpcResponse | undefined;
-          if (!res?.ok) {
-            reject(new RpcError(res?.status ?? 500, res?.error ?? ""));
-            return;
-          }
-          resolve(res.data as T);
-        });
-      }),
-  );
+  return ensureSocketConnected(socket)
+    .then(() => emitRpc<T>(socket, action, data))
+    .catch((err) => {
+      if (err instanceof RpcError && err.status === 0 && socket.connected) {
+        return emitRpc<T>(socket, action, data);
+      }
+      if (err instanceof RpcError && err.status === 0) {
+        return ensureSocketConnected(socket).then(() =>
+          emitRpc<T>(socket, action, data),
+        );
+      }
+      throw err;
+    });
 }

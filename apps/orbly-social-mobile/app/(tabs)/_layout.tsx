@@ -4,7 +4,7 @@ import { Tabs } from "expo-router";
 import { StyleSheet } from "react-native";
 
 import { OrblyColors } from "@/constants/Colors";
-import { TAB_BAR_HEIGHT } from "@/constants/layout";
+import { TAB_BAR_CONTENT_HEIGHT, useTabBarMetrics } from "@/constants/layout";
 import { useAuthStore } from "@/lib/auth-store";
 
 type IonIcon = React.ComponentProps<typeof Ionicons>["name"];
@@ -24,9 +24,11 @@ export default function TabLayout() {
   const { data: msgUnread = 0 } = useConversationsUnreadCount({ enabled: authed });
   const notifBadge = formatNavBadgeCount(notifUnread);
   const msgBadge = formatNavBadgeCount(msgUnread);
+  const tabBar = useTabBarMetrics();
 
   return (
     <Tabs
+      safeAreaInsets={{ bottom: tabBar.bottomInset }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: OrblyColors.textPrimary,
@@ -36,8 +38,13 @@ export default function TabLayout() {
           backgroundColor: OrblyColors.bgPrimary,
           borderTopColor: OrblyColors.border,
           borderTopWidth: StyleSheet.hairlineWidth,
-          height: TAB_BAR_HEIGHT,
+          height: tabBar.totalHeight,
           paddingTop: 6,
+          paddingBottom: tabBar.bottomInset,
+        },
+        tabBarItemStyle: {
+          height: TAB_BAR_CONTENT_HEIGHT,
+          marginBottom: 0,
         },
         sceneStyle: { backgroundColor: OrblyColors.bgPrimary },
       }}

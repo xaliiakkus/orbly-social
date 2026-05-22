@@ -1,11 +1,10 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ComposeModal } from "@/components/ComposeModal";
 import { OrblyColors } from "@/constants/Colors";
-import { TAB_BAR_HEIGHT } from "@/constants/layout";
+import { useTabBarMetrics } from "@/constants/layout";
 
 type Props = {
   open?: boolean;
@@ -20,7 +19,7 @@ export function ComposeFab({
   onPosted,
   onPressFab,
 }: Props = {}) {
-  const insets = useSafeAreaInsets();
+  const tabBar = useTabBarMetrics();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = (v: boolean) => {
@@ -31,7 +30,7 @@ export function ComposeFab({
   return (
     <>
       <Pressable
-        style={[styles.fab, { bottom: TAB_BAR_HEIGHT + insets.bottom + 12 }]}
+        style={[styles.fab, { bottom: tabBar.totalHeight + 12 }]}
         onPress={() => {
           onPressFab?.();
           setOpen(true);

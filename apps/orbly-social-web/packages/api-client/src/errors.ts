@@ -1,6 +1,6 @@
 const EXACT_MESSAGES: Record<string, string> = {
   "Email or username already taken": "Bu e-posta veya kullanıcı adı zaten kullanılıyor.",
-  "Invalid credentials": "E-posta veya şifre hatalı.",
+  "Invalid credentials": "E-posta, kullanıcı adı veya şifre hatalı.",
   "Account suspended": "Hesabın askıya alınmış. info@orbly.social adresinden destek al.",
   Unauthorized: "Oturumun sona erdi. Lütfen tekrar giriş yap.",
   "User not found": "Kullanıcı bulunamadı.",

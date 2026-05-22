@@ -42,7 +42,7 @@ export default function LoginScreen() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const [view, setView] = useState<AuthView>("login");
   const [resetToken, setResetToken] = useState("");
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotUsername, setForgotUsername] = useState("");
@@ -111,7 +111,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       disconnectSocket();
-      const res = await api.auth.login({ email, password });
+      const res = await api.auth.login({ login: login.trim(), password });
       await finishAuth(res);
     } catch (e) {
       setError(formatUserError(e));
@@ -331,12 +331,12 @@ export default function LoginScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="E-posta"
+        placeholder="E-posta veya kullanıcı adı"
         placeholderTextColor={OrblyColors.textSecondary}
         autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
+        autoCorrect={false}
+        value={login}
+        onChangeText={(v) => setLogin(v.includes("@") ? v : v.toLowerCase())}
       />
       <TextInput
         style={styles.input}
@@ -350,8 +350,14 @@ export default function LoginScreen() {
         <Pressable
           style={styles.forgotWrap}
           onPress={() => {
-            setForgotEmail(email);
-            setForgotUsername("");
+            const trimmed = login.trim();
+            if (trimmed.includes("@")) {
+              setForgotEmail(trimmed);
+              setForgotUsername("");
+            } else {
+              setForgotEmail("");
+              setForgotUsername(trimmed.toLowerCase());
+            }
             setError("");
             setSuccess("");
             setView("forgot");

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import { api, withoutUnauthorizedLogout } from "@/lib/api";
 import { migratePersistFromSecureStore } from "@/lib/migrate-persist-storage";
-import { reconnectSocket } from "@/lib/socket";
+import { getSocket, waitForSocketConnection } from "@/lib/socket";
 import { syncCurrentAccountToDevice } from "@/lib/sync-saved-account";
 import { useAuthStore } from "@/lib/auth-store";
 import {
@@ -35,7 +35,13 @@ export function AuthBootstrap() {
     void withoutUnauthorizedLogout(async () => {
       await migratePersistFromSecureStore();
       const token = await ensureFreshAccessToken();
-      if (token) reconnectSocket(token);
+      if (token) {
+        try {
+          await waitForSocketConnection(getSocket(token));
+        } catch {
+          /* API/socket geçici — HTTP fallback auth.me için */
+        }
+      }
       try {
         const { user } = await api.auth.me();
         useAuthStore.getState().setUser(user);

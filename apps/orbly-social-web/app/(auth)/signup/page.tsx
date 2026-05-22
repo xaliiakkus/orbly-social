@@ -32,7 +32,7 @@ export default function SignupPage() {
       const res = await api.auth.register(form);
       setAuth(res);
       const session = await signIn("credentials", {
-        email: form.email,
+        login: form.email,
         password: form.password,
         redirect: false,
       });

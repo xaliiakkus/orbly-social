@@ -173,7 +173,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { update } = useSession();
-  const emailId = useId();
+  const loginId = useId();
   const passwordId = useId();
   const forgotEmailId = useId();
   const forgotUsernameId = useId();
@@ -182,7 +182,7 @@ function LoginForm() {
   const resetTokenParam = searchParams.get("resetToken") ?? "";
   const [view, setView] = useState<AuthView>("login");
   const [resetToken, setResetToken] = useState("");
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotUsername, setForgotUsername] = useState("");
@@ -301,7 +301,7 @@ function LoginForm() {
     }
     setLoading(true);
     const res = await signIn("credentials", {
-      email,
+      login: login.trim(),
       password,
       redirect: false,
     });
@@ -309,7 +309,7 @@ function LoginForm() {
     if (res?.error) {
       setError(
         res.error === "CredentialsSignin"
-          ? "E-posta veya şifre hatalı."
+          ? "E-posta, kullanıcı adı veya şifre hatalı."
           : "Giriş başarısız. Lütfen tekrar dene.",
       );
       return;
@@ -587,21 +587,27 @@ function LoginForm() {
 
         <form onSubmit={submit} className="space-y-4 auth-animate-in auth-delay-3">
           <AuthField
-            id={emailId}
-            label="E-posta"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            icon={Mail}
-            autoComplete="email"
+            id={loginId}
+            label="E-posta veya kullanıcı adı"
+            type="text"
+            value={login}
+            onChange={(v) => setLogin(v.includes("@") ? v : v.toLowerCase())}
+            icon={User}
+            autoComplete="username"
           />
           {!addAccount && (
             <div className="flex justify-end -mt-1">
               <button
                 type="button"
                 onClick={() => {
-                  setForgotEmail(email);
-                  setForgotUsername("");
+                  const trimmed = login.trim();
+                  if (trimmed.includes("@")) {
+                    setForgotEmail(trimmed);
+                    setForgotUsername("");
+                  } else {
+                    setForgotEmail("");
+                    setForgotUsername(trimmed.toLowerCase());
+                  }
                   setError("");
                   setSuccess("");
                   setView("forgot");
