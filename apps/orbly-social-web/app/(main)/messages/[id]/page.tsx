@@ -2,6 +2,7 @@
 
 import {
   convoRoom,
+  groupMessagesByDay,
   isMessageMine,
   useConversationMessages,
   useConversations,
@@ -9,13 +10,13 @@ import {
   useSocketRooms,
 } from "@orbly/features";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ChatComposer } from "@/components/messages/chat-composer";
+import { ChatDateDivider } from "@/components/messages/chat-date-divider";
+import { ChatHeaderBar } from "@/components/messages/chat-header-bar";
 import { ChatMessage } from "@/components/messages/chat-message";
-import { PageHeader } from "@/components/layout/page-header";
-import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/auth-store";
 import { getSocket } from "@/lib/socket";
 import { uploadFile } from "@/lib/upload";
@@ -43,11 +44,18 @@ export default function ChatPage() {
     return otherMsg?.sender ?? null;
   }, [convos?.data, id, data?.data, me]);
 
+  const dayGroups = useMemo(
+    () => groupMessagesByDay(data?.data ?? []),
+    [data?.data],
+  );
+
+  const flatMessages = data?.data ?? [];
+
   useSocketRooms(() => getSocket(accessToken), id ? [convoRoom(id)] : []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [data]);
+  }, [data?.data.length]);
 
   const onFile = async (file: File) => {
     const url = await uploadFile(file);
@@ -57,67 +65,65 @@ export default function ChatPage() {
     );
   };
 
+  const submit = () => {
+    if (!text.trim()) return;
+    send.mutate({ content: text.trim() }, { onSuccess: () => setText("") });
+  };
+
   return (
-    <>
-      <PageHeader
-        title={participant?.displayName ?? "Sohbet"}
-        subtitle={participant ? `@${participant.username}` : undefined}
-        action={
-          participant ? (
-            <Link href={`/profile/${participant.username}`} className="shrink-0">
-              <Avatar
-                src={participant.avatarUrl}
-                name={participant.displayName}
-                size="sm"
-                className="h-10 w-10"
-              />
-            </Link>
-          ) : null
-        }
-      />
-      <div className="flex flex-col h-[calc(100dvh-120px)] min-h-[400px]">
-        <div className="flex-1 overflow-y-auto">
-          {data?.data.map((m) => (
-            <ChatMessage key={m.id} message={m} me={me} other={participant} />
-          ))}
-          <div ref={bottomRef} />
-        </div>
-        <form
-          className="border-t border-border p-3 flex gap-2 items-end shrink-0"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!text.trim()) return;
-            send.mutate({ content: text.trim() }, { onSuccess: () => setText("") });
+    <div className="flex flex-col min-h-dvh max-h-dvh">
+      <ChatHeaderBar participant={participant} />
+
+      <div className="flex-1 overflow-y-auto relative">
+        <div
+          className="absolute inset-0 opacity-[0.35] pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 20% 10%, var(--color-accent) 0%, transparent 42%), radial-gradient(circle at 80% 90%, var(--color-orbit) 0%, transparent 38%)",
           }}
-        >
-          <label className="p-2 cursor-pointer text-accent shrink-0">
-            📎
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onFile(f);
-              }}
-            />
-          </label>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={1}
-            placeholder="Mesaj yaz"
-            className="flex-1 bg-bg-secondary border border-border rounded-2xl px-4 py-2.5 text-[15px] outline-none resize-none min-h-[44px]"
-          />
-          <button
-            type="submit"
-            disabled={!text.trim() || send.isPending}
-            className="bg-accent text-white font-bold px-5 py-2.5 rounded-full disabled:opacity-50 shrink-0"
-          >
-            Gönder
-          </button>
-        </form>
+          aria-hidden
+        />
+        <div className="relative min-h-full flex flex-col justify-end py-2">
+          {!flatMessages.length ? (
+            <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 text-center">
+              <p className="text-lg font-bold text-text-primary">Sohbete başla</p>
+              <p className="text-text-secondary text-[15px] mt-2 max-w-xs">
+                {participant
+                  ? `${participant.displayName} ile ilk mesajını gönder.`
+                  : "İlk mesajını yaz."}
+              </p>
+            </div>
+          ) : (
+            dayGroups.map((group) => (
+              <div key={group.dateKey}>
+                <ChatDateDivider label={group.label} />
+                {group.messages.map((m) => {
+                  const messageIndex = flatMessages.findIndex((x) => x.id === m.id);
+                  return (
+                    <ChatMessage
+                      key={m.id}
+                      message={m}
+                      me={me}
+                      other={participant}
+                      allMessages={flatMessages}
+                      messageIndex={messageIndex}
+                    />
+                  );
+                })}
+              </div>
+            ))
+          )}
+          <div ref={bottomRef} className="h-2" />
+        </div>
       </div>
-    </>
+
+      <ChatComposer
+        text={text}
+        onTextChange={setText}
+        onSubmit={submit}
+        onAttach={(file) => void onFile(file)}
+        pending={send.isPending}
+      />
+    </div>
   );
 }

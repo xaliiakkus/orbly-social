@@ -89,6 +89,7 @@ function postCardPropsEqual(
     p.stats.likeCount === n.stats.likeCount &&
     p.stats.replyCount === n.stats.replyCount &&
     p.stats.repostCount === n.stats.repostCount &&
+    p.stats.viewCount === n.stats.viewCount &&
     p.likedByMe === n.likedByMe &&
     p.repostedByMe === n.repostedByMe &&
     p.bookmarkedByMe === n.bookmarkedByMe &&

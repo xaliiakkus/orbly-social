@@ -127,5 +127,10 @@ export function usePostView(postId: string, viewerId?: string | null, authorId?:
     });
   }, [viewerId, authorId, postId, mutation]);
 
-  return { recordView, isPending: mutation.isPending };
+  return {
+    recordView,
+    /** @deprecated use recordView */
+    mutate: recordView,
+    isPending: mutation.isPending,
+  };
 }

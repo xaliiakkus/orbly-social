@@ -1,21 +1,21 @@
 "use client";
 
-import { MessageCircle, Search, UserPlus } from "lucide-react";
-import Link from "next/link";
+import { MessageCircle, PenLine, Search, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/layout/page-header";
-import { Avatar } from "@/components/ui/avatar";
+import { ConversationRow } from "@/components/messages/conversation-row";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageLoading } from "@/components/ui/page-loading";
+import { useAuthStore } from "@/lib/auth-store";
 import { useConversations, useCreateConversation } from "@orbly/features";
-import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 export default function MessagesPage() {
+  const viewerId = useAuthStore((s) => s.user?.id);
   const [newUserId, setNewUserId] = useState("");
   const [q, setQ] = useState("");
+  const [showNewChat, setShowNewChat] = useState(false);
   const { data, isLoading } = useConversations();
   const create = useCreateConversation();
 
@@ -23,99 +23,131 @@ export default function MessagesPage() {
     const list = data?.data ?? [];
     const term = q.trim().toLowerCase();
     if (!term) return list;
-    return list.filter((c) =>
-      c.participant?.displayName?.toLowerCase().includes(term) ||
-      c.participant?.username?.toLowerCase().includes(term) ||
-      c.lastMessage?.content?.toLowerCase().includes(term),
+    return list.filter(
+      (c) =>
+        c.participant?.displayName?.toLowerCase().includes(term) ||
+        c.participant?.username?.toLowerCase().includes(term) ||
+        c.lastMessage?.content?.toLowerCase().includes(term),
     );
   }, [data, q]);
+
+  const unreadTotal = useMemo(
+    () => (data?.data ?? []).reduce((n, c) => n + c.unreadCount, 0),
+    [data?.data],
+  );
 
   const startChat = () => {
     if (!newUserId.trim()) return;
     create.mutate(newUserId.trim(), {
       onSuccess: (res) => {
         setNewUserId("");
+        setShowNewChat(false);
         window.location.href = `/messages/${res.conversationId}`;
       },
     });
   };
 
   return (
-    <>
-      <PageHeader title="Mesajlar" subtitle="Özel sohbetler" />
-      <div className="p-4 border-b border-border space-y-3 bg-bg-secondary/20">
-        <label className="relative block">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Sohbetlerde ara…"
-            className="w-full bg-bg-primary rounded-full pl-11 pr-4 py-2.5 text-[15px] outline-none border border-border focus:border-accent/50"
-          />
-        </label>
-        <div className="flex gap-2">
-          <input
-            value={newUserId}
-            onChange={(e) => setNewUserId(e.target.value)}
-            placeholder="Kullanıcı adı veya ID ile yeni sohbet"
-            className="flex-1 bg-bg-primary border border-border rounded-full px-4 py-2 text-[15px] outline-none focus:border-accent/50"
-            onKeyDown={(e) => e.key === "Enter" && startChat()}
-          />
-          <Button size="sm" className="gap-1.5 shrink-0" onClick={startChat} disabled={create.isPending}>
-            <UserPlus className="h-4 w-4" />
-            Başlat
-          </Button>
+    <div className="min-h-dvh flex flex-col">
+      <div className="relative overflow-hidden border-b border-border">
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-accent/12 via-orbit/8 to-transparent pointer-events-none"
+          aria-hidden
+        />
+        <div className="relative px-4 pt-5 pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight">Mesajlar</h1>
+              <p className="text-text-secondary text-[15px] mt-1">
+                {unreadTotal > 0
+                  ? `${unreadTotal} okunmamış sohbet`
+                  : "Özel sohbetlerin"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowNewChat((v) => !v)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-[14px] transition-colors shrink-0",
+                showNewChat
+                  ? "bg-bg-secondary text-text-primary border border-border"
+                  : "bg-accent text-white shadow-lg shadow-accent/25",
+              )}
+            >
+              <PenLine className="h-4 w-4" />
+              Yeni
+            </button>
+          </div>
+
+          <label className="relative block mt-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Kişi veya mesaj ara…"
+              className="w-full glass-card rounded-full pl-11 pr-4 py-3 text-[15px] outline-none border border-border/80 focus:border-accent/50"
+            />
+          </label>
+
+          {showNewChat ? (
+            <div className="mt-3 glass-card rounded-2xl p-3 border border-border/80 space-y-2">
+              <p className="text-[13px] font-semibold text-text-secondary px-1">
+                Kullanıcı adı veya ID ile sohbet başlat
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={newUserId}
+                  onChange={(e) => setNewUserId(e.target.value)}
+                  placeholder="@kullaniciadi"
+                  className="flex-1 bg-bg-primary border border-border rounded-full px-4 py-2.5 text-[15px] outline-none focus:border-accent/50"
+                  onKeyDown={(e) => e.key === "Enter" && startChat()}
+                />
+                <Button
+                  size="sm"
+                  className="gap-1.5 shrink-0 rounded-full px-4"
+                  onClick={startChat}
+                  disabled={create.isPending}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Başlat
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {isLoading && <PageLoading rows={5} />}
-      {!isLoading &&
-        filtered.map((c) => (
-          <Link
-            key={c.id}
-            href={`/messages/${c.id}`}
-            className={cn(
-              "flex gap-3 px-4 py-4 border-b border-border hover:bg-bg-hover transition-colors",
-              c.unreadCount > 0 && "bg-accent/5",
-            )}
-          >
-            {c.participant && (
-              <Avatar src={c.participant.avatarUrl} name={c.participant.displayName} size="md" />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex justify-between gap-2 items-baseline">
-                <p className="font-bold truncate text-[15px]">
-                  {c.participant?.displayName ?? "Sohbet"}
-                </p>
-                {c.lastMessage?.createdAt && (
-                  <time className="text-text-secondary text-[13px] shrink-0">
-                    {formatRelativeTime(c.lastMessage.createdAt)}
-                  </time>
-                )}
-              </div>
-              <p className="text-text-secondary text-[15px] truncate mt-0.5">
-                {c.lastMessage?.content ?? "Henüz mesaj yok"}
-              </p>
-            </div>
-            {c.unreadCount > 0 && (
-              <span className="bg-accent text-white text-xs font-bold h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center shrink-0 self-center">
-                {c.unreadCount}
-              </span>
-            )}
-          </Link>
-        ))}
+      <div className="flex-1">
+        {isLoading && <PageLoading rows={6} />}
+        {!isLoading &&
+          filtered.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conversation={c}
+              viewerId={viewerId}
+            />
+          ))}
 
-      {!isLoading && !filtered.length && (
-        <EmptyState
-          icon={MessageCircle}
-          title={q ? "Eşleşen sohbet yok" : "Henüz mesajın yok"}
-          description={
-            q
-              ? "Başka bir isim veya mesaj metni dene."
-              : "Yukarıdan kullanıcı adı veya ID ile yeni bir sohbet başlatabilirsin."
-          }
-        />
-      )}
-    </>
+        {!isLoading && !filtered.length && (
+          <EmptyState
+            icon={MessageCircle}
+            title={q ? "Eşleşen sohbet yok" : "Henüz mesajın yok"}
+            description={
+              q
+                ? "Başka bir isim veya mesaj metni dene."
+                : "Yeni sohbet ile arkadaşlarına ulaş."
+            }
+            action={
+              !q ? (
+                <Button onClick={() => setShowNewChat(true)} className="rounded-full gap-2">
+                  <PenLine className="h-4 w-4" />
+                  Sohbet başlat
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
+      </div>
+    </div>
   );
 }

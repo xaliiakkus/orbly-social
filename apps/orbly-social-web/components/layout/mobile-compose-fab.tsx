@@ -7,7 +7,7 @@ import { useState } from "react";
 import { MobileComposeSheet } from "@/components/layout/mobile-compose-sheet";
 import { cn } from "@/lib/cn";
 
-const HIDDEN_PREFIXES = ["/settings", "/live/"];
+const HIDDEN_PREFIXES = ["/settings", "/live/", "/messages"];
 
 export function MobileComposeFab() {
   const pathname = usePathname();

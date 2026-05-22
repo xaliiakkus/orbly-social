@@ -1,13 +1,11 @@
 import {
   convoRoom,
+  groupMessagesByDay,
   isMessageMine,
-  resolveMessageSender,
   useConversationMessages,
   useConversations,
   useSendMessage,
 } from "@orbly/features";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Image } from "@/components/ui/expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -18,80 +16,25 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 
+import { ChatBubble } from "@/components/messages/ChatBubble";
+import { ChatComposer } from "@/components/messages/ChatComposer";
+import { ChatDateDivider } from "@/components/messages/ChatDateDivider";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { OrblyColors } from "@/constants/Colors";
 import { useAuthStore } from "@/lib/auth-store";
-import { formatRelativeTime } from "@/lib/format";
 import { uploadImage } from "@/lib/upload";
 import { useMobileSocketRooms } from "@/lib/use-socket-rooms";
 import type { MessageItem, UserPublic } from "@orbly/types";
 
-function ChatBubble({
-  message,
-  me,
-  other,
-}: {
-  message: MessageItem;
-  me: UserPublic | null | undefined;
-  other: UserPublic | null | undefined;
-}) {
-  const mine = isMessageMine(message.senderId, me?.id);
-  const sender = resolveMessageSender(message, me, other);
-  const label = mine ? "Sen" : sender?.displayName ?? "Kullanıcı";
-
-  if (mine) {
-    return (
-      <View style={styles.rowMineWrap}>
-        <View style={styles.bubbleColMine}>
-          <Text style={[styles.senderLabel, styles.senderLabelMine]}>{label}</Text>
-          <View style={[styles.bubble, styles.bubbleMine]}>
-            {message.content ? (
-              <Text style={styles.contentMine}>{message.content}</Text>
-            ) : null}
-            {message.mediaUrls?.map((url) => (
-              <Image key={url} source={{ uri: url }} style={styles.media} contentFit="cover" />
-            ))}
-            <Text style={styles.timeMine}>{formatRelativeTime(message.createdAt)}</Text>
-          </View>
-        </View>
-        <UserAvatar
-          name={me?.displayName ?? "Sen"}
-          uri={me?.avatarUrl ?? sender?.avatarUrl}
-          size="sm"
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.rowOtherWrap}>
-      <UserAvatar
-        name={sender?.displayName ?? "?"}
-        uri={sender?.avatarUrl}
-        size="sm"
-      />
-      <View style={styles.bubbleColOther}>
-        <Text style={styles.senderLabel}>{label}</Text>
-        <View style={[styles.bubble, styles.bubbleOther]}>
-          {message.content ? (
-            <Text style={styles.contentOther}>{message.content}</Text>
-          ) : null}
-          {message.mediaUrls?.map((url) => (
-            <Image key={url} source={{ uri: url }} style={styles.media} contentFit="cover" />
-          ))}
-          <Text style={styles.timeOther}>{formatRelativeTime(message.createdAt)}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
+type ListItem =
+  | { type: "date"; key: string; label: string }
+  | { type: "message"; key: string; message: MessageItem; index: number };
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -100,7 +43,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const me = useAuthStore((s) => s.user);
   const [text, setText] = useState("");
-  const listRef = useRef<FlatList<MessageItem>>(null);
+  const listRef = useRef<FlatList<ListItem>>(null);
   const { data: convos } = useConversations();
   const { data } = useConversationMessages(convoId);
   const send = useSendMessage(convoId);
@@ -113,8 +56,26 @@ export default function ChatScreen() {
     return otherMsg?.sender ?? null;
   }, [convos?.data, convoId, data?.data, me]);
 
-  useMobileSocketRooms(convoId ? [convoRoom(convoId)] : []);
+  const flatMessages = data?.data ?? [];
 
+  const listItems = useMemo((): ListItem[] => {
+    const items: ListItem[] = [];
+    for (const group of groupMessagesByDay(flatMessages)) {
+      items.push({ type: "date", key: `d-${group.dateKey}`, label: group.label });
+      group.messages.forEach((message) => {
+        const index = flatMessages.findIndex((m) => m.id === message.id);
+        items.push({
+          type: "message",
+          key: message.id,
+          message,
+          index: index >= 0 ? index : 0,
+        });
+      });
+    }
+    return items;
+  }, [flatMessages]);
+
+  useMobileSocketRooms(convoId ? [convoRoom(convoId)] : []);
 
   const scrollToBottom = (animated = true) => {
     requestAnimationFrame(() => {
@@ -123,9 +84,9 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    if (!data?.data.length) return;
+    if (!flatMessages.length) return;
     scrollToBottom(true);
-  }, [data?.data.length]);
+  }, [flatMessages.length]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -136,7 +97,10 @@ export default function ChatScreen() {
   }, []);
 
   const pickAndSend = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"] });
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+    });
     if (res.canceled || !convoId) return;
     const asset = res.assets[0];
     if (!asset) return;
@@ -174,45 +138,49 @@ export default function ChatScreen() {
         <FlatList
           ref={listRef}
           style={styles.flex}
-          data={data?.data ?? []}
-          keyExtractor={(m) => m.id}
+          data={listItems}
+          keyExtractor={(item) => item.key}
           contentContainerStyle={styles.listContent}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
-            <Text style={styles.emptyChat}>İlk mesajı sen gönder</Text>
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>Sohbete başla</Text>
+              <Text style={styles.emptyBody}>
+                {participant
+                  ? `${participant.displayName} ile ilk mesajını gönder.`
+                  : "İlk mesajını yaz."}
+              </Text>
+            </View>
           }
-          renderItem={({ item }) => (
-            <ChatBubble message={item} me={me} other={participant} />
-          )}
+          renderItem={({ item }) => {
+            if (item.type === "date") {
+              return <ChatDateDivider label={item.label} />;
+            }
+            return (
+              <ChatBubble
+                message={item.message}
+                me={me}
+                other={participant}
+                allMessages={flatMessages}
+                messageIndex={item.index}
+              />
+            );
+          }}
         />
 
-        <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-          <Pressable onPress={() => void pickAndSend()}>
-            <FontAwesome name="paperclip" size={22} color={OrblyColors.accent} />
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Mesaj yaz"
-            placeholderTextColor={OrblyColors.textSecondary}
-            multiline
-            maxLength={2000}
-            onFocus={() => scrollToBottom(true)}
-          />
-          <Pressable
-            style={[styles.sendBtn, !text.trim() && styles.sendDisabled]}
-            disabled={!text.trim() || send.isPending}
-            onPress={() => {
-              if (!text.trim()) return;
-              send.mutate({ content: text.trim() });
-              setText("");
-            }}
-          >
-            <Text style={styles.sendText}>Gönder</Text>
-          </Pressable>
-        </View>
+        <ChatComposer
+          text={text}
+          onChangeText={setText}
+          bottomInset={insets.bottom}
+          pending={send.isPending}
+          onAttach={() => void pickAndSend()}
+          onSend={() => {
+            if (!text.trim()) return;
+            send.mutate({ content: text.trim() });
+            setText("");
+          }}
+        />
       </KeyboardAvoidingView>
     </View>
   );
@@ -222,80 +190,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: OrblyColors.bgPrimary },
   flex: { flex: 1 },
   listContent: { paddingVertical: 8, flexGrow: 1 },
-  emptyChat: {
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    paddingTop: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: OrblyColors.textPrimary,
+  },
+  emptyBody: {
+    fontSize: 15,
     color: OrblyColors.textSecondary,
     textAlign: "center",
-    marginTop: 48,
-    fontSize: 15,
+    marginTop: 8,
+    lineHeight: 21,
   },
-  rowOtherWrap: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignSelf: "flex-start",
-    maxWidth: "92%",
-  },
-  rowMineWrap: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignSelf: "flex-end",
-    maxWidth: "92%",
-  },
-  bubbleColOther: { flex: 1, alignItems: "flex-start", minWidth: 0 },
-  bubbleColMine: { flex: 1, alignItems: "flex-end", minWidth: 0 },
-  senderLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: OrblyColors.textSecondary,
-    marginBottom: 4,
-    paddingHorizontal: 2,
-  },
-  senderLabelMine: { textAlign: "right" },
-  bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, maxWidth: "100%" },
-  bubbleMine: {
-    backgroundColor: OrblyColors.accent,
-    borderBottomRightRadius: 6,
-  },
-  bubbleOther: {
-    backgroundColor: OrblyColors.bgSecondary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: OrblyColors.border,
-    borderBottomLeftRadius: 6,
-  },
-  contentMine: { color: "#fff", fontSize: 15, lineHeight: 20 },
-  contentOther: { color: OrblyColors.textPrimary, fontSize: 15, lineHeight: 20 },
-  media: { width: 220, height: 160, borderRadius: 12, marginTop: 8 },
-  timeMine: { color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 6, textAlign: "right" },
-  timeOther: { color: OrblyColors.textSecondary, fontSize: 11, marginTop: 6 },
-  inputRow: {
-    flexDirection: "row",
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: OrblyColors.border,
-    alignItems: "center",
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: OrblyColors.bgSecondary,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    color: OrblyColors.textPrimary,
-    fontSize: 15,
-  },
-  sendBtn: {
-    backgroundColor: OrblyColors.accent,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  sendDisabled: { opacity: 0.45 },
-  sendText: { color: "#fff", fontWeight: "700" },
 });
