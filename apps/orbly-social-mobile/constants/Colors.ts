@@ -1,8 +1,7 @@
+export { OrblyColors } from "@/lib/orbly-colors-runtime";
+
 import { ORBLY_THEME } from "@orbly/features";
 
-export const OrblyColors = ORBLY_THEME;
-
-/** Expo şablonu uyumluluğu — uygulama yalnızca koyu tema kullanır */
 const palette = {
   text: ORBLY_THEME.textPrimary,
   background: ORBLY_THEME.bgPrimary,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Providers } from "@/components/providers";
 import { BRAND_APPLE_ICON, BRAND_ICON_SIZES, brandIconUrl } from "@/lib/brand";
+import { THEME_INLINE_BOOTSTRAP } from "@/lib/theme/inline-bootstrap";
 
 import "./globals.css";
 
@@ -58,7 +59,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INLINE_BOOTSTRAP }} />
+      </head>
       <body className="antialiased min-h-screen">
         <Providers>{children}</Providers>
       </body>

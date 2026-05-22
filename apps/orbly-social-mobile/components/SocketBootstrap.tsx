@@ -15,7 +15,7 @@ export function SocketBootstrap() {
     let socket: ReturnType<typeof getSocket> | null = null;
     const onConnectError = () => {
       void ensureFreshAccessToken().then((token) => {
-        if (token) reconnectSocket();
+        if (token) reconnectSocket(token);
       });
     };
 

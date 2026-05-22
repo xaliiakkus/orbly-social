@@ -12,7 +12,7 @@ let refreshInterval: ReturnType<typeof setInterval> | null = null;
 export function applyAuthTokens(payload: AuthResponse): void {
   const accessExpiresAt = Date.now() + payload.tokens.expiresIn * 1000;
   useAuthStore.getState().setAuth(payload, accessExpiresAt);
-  reconnectSocket();
+  reconnectSocket(payload.tokens.accessToken);
 }
 
 export function needsAccessRefresh(): boolean {

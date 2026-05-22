@@ -1,24 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Accessibility,
-  Bell,
   CircleDollarSign,
   Crown,
-  Database,
-  Eye,
-  Globe,
-  KeyRound,
-  Lock,
-  Shield,
+  Palette,
   Sparkles,
-  User,
-  UserCircle,
-  Users,
   Wallet,
 } from "lucide-react";
 
 export type SettingsSectionId =
   | "account"
+  | "appearance"
   | "monetization"
   | "premium"
   | "creator"
@@ -28,6 +19,16 @@ export type SettingsSectionId =
   | "accessibility"
   | "language"
   | "orbits";
+
+/** Özel panel bileşeni olan bölümler (liste yerine) */
+export const SETTINGS_CUSTOM_PANELS = new Set<SettingsSectionId>([
+  "account",
+  "appearance",
+  "privacy",
+  "notifications",
+  "security",
+  "language",
+]);
 
 export interface SettingsNavItem {
   id: SettingsSectionId;
@@ -47,15 +48,16 @@ export interface SettingsDetailItem {
 
 export const SETTINGS_NAV: SettingsNavItem[] = [
   { id: "account", label: "Hesabın", available: true },
+  { id: "appearance", label: "Görünüm ve renk", available: true },
+  { id: "notifications", label: "Bildirimler", available: true },
+  { id: "privacy", label: "Gizlilik ve güvenlik", available: true },
+  { id: "security", label: "Güvenlik ve hesap erişimi", available: true },
+  { id: "orbits", label: "Orbit'ler", available: true },
+  { id: "language", label: "Dil", available: true },
+  { id: "accessibility", label: "Erişilebilirlik", available: true },
   { id: "monetization", label: "Para kazanma", available: false },
   { id: "premium", label: "Premium", available: false },
   { id: "creator", label: "Oluşturucu Abonelikleri", available: false },
-  { id: "security", label: "Güvenlik ve hesap erişimi", available: false },
-  { id: "privacy", label: "Gizlilik ve güvenlik", available: false },
-  { id: "notifications", label: "Bildirimler", available: true },
-  { id: "accessibility", label: "Erişilebilirlik", available: false },
-  { id: "language", label: "Dil", available: false },
-  { id: "orbits", label: "Orbit'ler", available: true },
 ];
 
 export const SECTION_META: Record<
@@ -66,45 +68,12 @@ export const SECTION_META: Record<
     title: "Hesabın",
     description:
       "Hesap bilgilerini görüntüle, hesabınla ilgili değişiklikleri yap ve hesap durumun hakkında bilgi al.",
-    items: [
-      {
-        id: "account-info",
-        icon: UserCircle,
-        title: "Hesap bilgileri",
-        description: "Telefon, e-posta, kullanıcı adı",
-        available: true,
-        action: "edit-profile",
-      },
-      {
-        id: "password",
-        icon: KeyRound,
-        title: "Şifreni değiştir",
-        description: "Şifre sıfırlama: info@orbly.social",
-        available: false,
-      },
-      {
-        id: "support",
-        icon: Globe,
-        title: "Yardım ve destek",
-        description: "info@orbly.social",
-        available: true,
-        href: "mailto:info@orbly.social?subject=Destek",
-      },
-      {
-        id: "download",
-        icon: Database,
-        title: "Verilerini indir",
-        description: "Hesabındaki bilgilerin bir arşivini indir",
-        available: false,
-      },
-      {
-        id: "deactivate",
-        icon: User,
-        title: "Hesabını devre dışı bırak",
-        description: "Hesabını yeniden etkinleştirmek için ne yapman gerektiğini öğren",
-        available: false,
-      },
-    ],
+    items: [],
+  },
+  appearance: {
+    title: "Görünüm ve renk",
+    description: "Tema paleti ve vurgu rengi ile arayüzü kişiselleştir.",
+    items: [],
   },
   monetization: {
     title: "Para kazanma",
@@ -124,90 +93,36 @@ export const SECTION_META: Record<
   security: {
     title: "Güvenlik ve hesap erişimi",
     description: "Hesabının güvenliğini ve giriş yöntemlerini yönet.",
-    items: [
-      {
-        id: "2fa",
-        icon: Shield,
-        title: "İki faktörlü kimlik doğrulama",
-        description: "Ekstra güvenlik katmanı",
-        available: false,
-      },
-      {
-        id: "sessions",
-        icon: Lock,
-        title: "Uygulama ve oturumlar",
-        description: "Bağlı cihazları görüntüle",
-        available: false,
-      },
-    ],
+    items: [],
   },
   privacy: {
     title: "Gizlilik ve güvenlik",
     description: "Kimlerin seni görebileceğini ve etkileşim kurabileceğini kontrol et.",
-    items: [
-      {
-        id: "audience",
-        icon: Eye,
-        title: "Hedef kitle ve etiketleme",
-        description: "Kimlerin içeriklerini görebileceğini yönet",
-        available: false,
-      },
-      {
-        id: "mute",
-        icon: Users,
-        title: "Sessize alınan ve engellenen",
-        description: "Engellediğin hesapları yönet",
-        available: false,
-      },
-    ],
+    items: [],
   },
   notifications: {
     title: "Bildirimler",
     description: "Hangi bildirimleri alacağını seç.",
-    items: [
-      {
-        id: "mark-all-read",
-        icon: Bell,
-        title: "Tümünü okundu işaretle",
-        description: "Okunmamış bildirimleri temizle",
-        available: true,
-        action: "mark-notifications-read",
-      },
-      {
-        id: "notif-feed",
-        icon: Bell,
-        title: "Bildirim akışı",
-        description: "Tüm bildirimleri görüntüle",
-        available: true,
-        href: "/notifications",
-      },
-    ],
+    items: [],
   },
   accessibility: {
     title: "Erişilebilirlik",
     description: "Görüntü ve etkileşim tercihlerini özelleştir.",
     items: [
       {
-        id: "a11y",
-        icon: Accessibility,
-        title: "Erişilebilirlik görüntüleme",
-        description: "Kontrast ve hareket ayarları",
-        available: false,
+        id: "appearance-link",
+        icon: Palette,
+        title: "Görünüm ve renk",
+        description: "Tema ve vurgu rengi ayarları",
+        available: true,
+        href: "/settings?section=appearance",
       },
     ],
   },
   language: {
     title: "Dil",
     description: "Uygulama dilini değiştir.",
-    items: [
-      {
-        id: "lang",
-        icon: Globe,
-        title: "Uygulama dili",
-        description: "Türkçe",
-        available: false,
-      },
-    ],
+    items: [],
   },
   orbits: {
     title: "Orbit'ler",

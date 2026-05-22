@@ -14,6 +14,7 @@ import { cn } from "@/lib/cn";
 
 const VALID_SECTIONS = new Set<SettingsSectionId>([
   "account",
+  "appearance",
   "monetization",
   "premium",
   "creator",

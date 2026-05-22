@@ -6,12 +6,14 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { AutoSaveStatus, type AutoSaveState } from "@/components/settings/auto-save-status";
 import { Avatar } from "@/components/ui/avatar";
 import { MediaImage } from "@/components/ui/media-image";
 import { ProfileField } from "@/components/profile/profile-field";
 import { useAuthStore } from "@/lib/auth-store";
 import { api } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media-url";
+import { useDebouncedCallback } from "@/lib/use-debounced-callback";
 import { uploadFile } from "@/lib/upload";
 import type { UserPublic } from "@orbly/types";
 
@@ -48,6 +50,23 @@ function MediaUploadButton({
   );
 }
 
+function profileFieldsEqual(
+  a: {
+    displayName: string;
+    bio: string;
+    location: string;
+    website: string;
+  },
+  user: UserPublic,
+) {
+  return (
+    a.displayName.trim() === user.displayName &&
+    (a.bio.trim() || "") === (user.bio ?? "") &&
+    (a.location.trim() || "") === (user.location ?? "") &&
+    (a.website.trim() || "") === (user.website ?? "")
+  );
+}
+
 export function EditProfileModal({
   user,
   open,
@@ -70,8 +89,13 @@ export function EditProfileModal({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<AutoSaveState>("idle");
   const [error, setError] = useState("");
+
+  const userRef = useRef(user);
+  userRef.current = user;
+  const savingRef = useRef(false);
+  const savedFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetForm = useCallback(() => {
     setDisplayName(user.displayName);
@@ -83,6 +107,7 @@ export function EditProfileModal({
     setBannerFile(null);
     setAvatarFile(null);
     setError("");
+    setSaveState("idle");
   }, [user]);
 
   useEffect(() => {
@@ -102,27 +127,32 @@ export function EditProfileModal({
     };
   }, [open, onClose]);
 
-  const pickBanner = (file: File) => {
-    setBannerFile(file);
-    setBannerPreview(URL.createObjectURL(file));
-  };
+  const flashSaved = useCallback(() => {
+    setSaveState("saved");
+    if (savedFlashRef.current) clearTimeout(savedFlashRef.current);
+    savedFlashRef.current = setTimeout(() => setSaveState("idle"), 2000);
+  }, []);
 
-  const pickAvatar = (file: File) => {
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
+  const persist = useCallback(async () => {
+    if (!open || savingRef.current) return;
+    const u = userRef.current;
+    const fields = { displayName, bio, location, website };
+    const hasTextChange = !profileFieldsEqual(fields, u);
+    const hasMedia = !!bannerFile || !!avatarFile;
+    if (!hasTextChange && !hasMedia) return;
+    if (!displayName.trim()) return;
 
-  const save = async () => {
+    savingRef.current = true;
+    setSaveState("saving");
     setError("");
-    setSaving(true);
     try {
-      let bannerUrl = user.bannerUrl;
-      let avatarUrl = user.avatarUrl;
+      let bannerUrl = u.bannerUrl;
+      let avatarUrl = u.avatarUrl;
       if (bannerFile) bannerUrl = await uploadFile(bannerFile, "profiles");
       if (avatarFile) avatarUrl = await uploadFile(avatarFile, "avatars");
 
       const res = await api.users.updateMe({
-        displayName: displayName.trim() || user.displayName,
+        displayName: displayName.trim() || u.displayName,
         bio: bio.trim() || null,
         location: location.trim() || null,
         website: website.trim() || null,
@@ -131,14 +161,70 @@ export function EditProfileModal({
       });
 
       setUser(res.user);
+      userRef.current = res.user;
       await updateSession({ orblyUser: res.user });
       onSaved?.(res.user);
-      onClose();
+      setBannerFile(null);
+      setAvatarFile(null);
+      setBannerPreview(null);
+      setAvatarPreview(null);
+      flashSaved();
     } catch (err) {
       setError(formatUserError(err));
+      setSaveState("error");
     } finally {
-      setSaving(false);
+      savingRef.current = false;
     }
+  }, [
+    open,
+    displayName,
+    bio,
+    location,
+    website,
+    bannerFile,
+    avatarFile,
+    setUser,
+    updateSession,
+    onSaved,
+    flashSaved,
+  ]);
+
+  const { schedule: scheduleTextSave, flush } = useDebouncedCallback(persist, 650);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!profileFieldsEqual({ displayName, bio, location, website }, userRef.current)) {
+      scheduleTextSave();
+    }
+  }, [displayName, bio, location, website, open, scheduleTextSave]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (bannerFile || avatarFile) void persist();
+  }, [bannerFile, avatarFile, open, persist]);
+
+  const handleClose = () => {
+    void (async () => {
+      await flush();
+      onClose();
+    })();
+  };
+
+  useEffect(
+    () => () => {
+      if (savedFlashRef.current) clearTimeout(savedFlashRef.current);
+    },
+    [],
+  );
+
+  const pickBanner = (file: File) => {
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const pickAvatar = (file: File) => {
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
   };
 
   const bannerSrc = bannerPreview ?? resolveMediaUrl(user.bannerUrl);
@@ -153,31 +239,28 @@ export function EditProfileModal({
       aria-modal="true"
       aria-labelledby="edit-profile-title"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div className="relative w-full max-w-[600px] rounded-2xl bg-bg-primary shadow-2xl border border-border my-auto">
-        <header className="flex items-center justify-between px-4 h-[53px]">
+        <header className="flex items-center justify-between px-4 h-[53px] gap-2">
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 -ml-2 rounded-full hover:bg-bg-hover transition-colors"
+            onClick={handleClose}
+            className="p-2 -ml-2 rounded-full hover:bg-bg-hover transition-colors shrink-0"
             aria-label="Kapat"
           >
             <X className="h-5 w-5" />
           </button>
-          <h2 id="edit-profile-title" className="font-bold text-[20px]">
+          <h2 id="edit-profile-title" className="font-bold text-[20px] flex-1 text-center truncate">
             Profili düzenle
           </h2>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving || !displayName.trim()}
-            className="font-bold text-[15px] rounded-full px-4 py-1.5 bg-text-primary text-bg-primary disabled:opacity-50 hover:opacity-90 transition-opacity min-w-[72px]"
-          >
-            {saving ? "…" : "Kaydet"}
-          </button>
+          <AutoSaveStatus state={saveState} error={error || undefined} />
         </header>
+
+        <p className="px-4 pb-2 text-[13px] text-text-secondary border-b border-border">
+          Değişiklikler otomatik kaydedilir.
+        </p>
 
         <div className="relative h-[140px] bg-bg-secondary overflow-hidden">
           {bannerSrc ? (
@@ -248,8 +331,6 @@ export function EditProfileModal({
             <p className="text-[15px] pr-2">Profesyonel profili düzenle</p>
             <ChevronRight className="h-5 w-5 text-text-secondary shrink-0" />
           </button>
-
-          {error && <p className="text-like text-sm pt-1">{error}</p>}
         </div>
       </div>
     </div>,

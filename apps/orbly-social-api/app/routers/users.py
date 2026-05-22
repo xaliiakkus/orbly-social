@@ -187,7 +187,7 @@ async def mutual_followers(
     )
     total = await base_q.count()
     lim = parse_limit(limit)
-    mutual = await base_q.sort(-Follow.createdAt).limit(lim).to_list()
+    mutual = await base_q.sort(-Follow.id).limit(lim).to_list()
     ids = [f.followerId for f in mutual]
     users = await User.find(In(User.id, ids)).to_list()
     umap = {u.id: u for u in users}

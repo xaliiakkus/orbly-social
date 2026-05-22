@@ -96,7 +96,7 @@ export default function LoginScreen() {
       return;
     }
     setAuth(res);
-    reconnectSocket();
+    reconnectSocket(res.tokens.accessToken);
     await syncCurrentAccountToDevice();
     router.replace(res.user.onboarded ? "/(tabs)" : "/onboarding");
   };

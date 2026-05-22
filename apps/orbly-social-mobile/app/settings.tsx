@@ -1,11 +1,16 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { useReadAllNotifications } from "@orbly/features";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EditProfileModal } from "@/components/EditProfileModal";
+import { SettingsAccountPanel } from "@/components/settings/panels/SettingsAccountPanel";
+import { SettingsAppearancePanel } from "@/components/settings/panels/SettingsAppearancePanel";
+import { SettingsLanguagePanel } from "@/components/settings/panels/SettingsLanguagePanel";
+import { SettingsNotificationsPanel } from "@/components/settings/panels/SettingsNotificationsPanel";
+import { SettingsPrivacyPanel } from "@/components/settings/panels/SettingsPrivacyPanel";
+import { SettingsSecurityPanel } from "@/components/settings/panels/SettingsSecurityPanel";
 import { OrblyColors } from "@/constants/Colors";
 import { disconnectSocket } from "@/lib/socket";
 import { useAuthStore } from "@/lib/auth-store";
@@ -16,6 +21,64 @@ import {
   type SettingsSectionId,
 } from "@/lib/settings-config";
 
+function SectionPanel({
+  section,
+  onEditProfile,
+  onSignOut,
+}: {
+  section: SettingsSectionId;
+  onEditProfile: () => void;
+  onSignOut: () => void;
+}) {
+  const router = useRouter();
+
+  switch (section) {
+    case "account":
+      return <SettingsAccountPanel onEditProfile={onEditProfile} onSignOut={onSignOut} />;
+    case "appearance":
+      return <SettingsAppearancePanel />;
+    case "privacy":
+      return <SettingsPrivacyPanel />;
+    case "notifications":
+      return <SettingsNotificationsPanel />;
+    case "security":
+      return <SettingsSecurityPanel />;
+    case "language":
+      return <SettingsLanguagePanel />;
+    case "accessibility":
+      return (
+        <ScrollView>
+          <Pressable
+            style={styles.row}
+            onPress={() => router.setParams({ section: "appearance" })}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle}>Görünüm ve renk</Text>
+              <Text style={styles.rowSub}>Tema ve vurgu rengi ayarları</Text>
+            </View>
+            <FontAwesome name="chevron-right" size={14} color={OrblyColors.textSecondary} />
+          </Pressable>
+        </ScrollView>
+      );
+    case "orbits":
+      return (
+        <ScrollView>
+          <Pressable style={styles.row} onPress={() => router.push("/orbits" as never)}>
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle}>Orbit'leri keşfet</Text>
+              <Text style={styles.rowSub}>Topluluklara katıl veya ayrıl</Text>
+            </View>
+            <FontAwesome name="chevron-right" size={14} color={OrblyColors.textSecondary} />
+          </Pressable>
+        </ScrollView>
+      );
+    default:
+      return (
+        <Text style={styles.emptySection}>Bu bölüm yakında kullanıma sunulacak.</Text>
+      );
+  }
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
@@ -23,7 +86,6 @@ export default function SettingsScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const removeAccount = useDeviceAccountsStore((s) => s.removeAccount);
-  const readAllNotifications = useReadAllNotifications();
   const [section, setSection] = useState<SettingsSectionId | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -46,8 +108,10 @@ export default function SettingsScreen() {
       <View style={styles.bar}>
         <Pressable
           onPress={() => {
-            if (section) setSection(null);
-            else router.back();
+            if (section) {
+              setSection(null);
+              router.setParams({ section: "" });
+            } else router.back();
           }}
         >
           <FontAwesome name="arrow-left" size={22} color={OrblyColors.textPrimary} />
@@ -63,55 +127,34 @@ export default function SettingsScreen() {
           {SETTINGS_NAV.map((item) => (
             <Pressable
               key={item.id}
-              style={[styles.row, !item.available && styles.rowDisabled]}
-              disabled={!item.available}
-              onPress={() => setSection(item.id)}
+              style={[styles.row, item.available === false && styles.rowDisabled]}
+              onPress={() => {
+                setSection(item.id);
+                router.setParams({ section: item.id });
+              }}
             >
-              <Text style={[styles.rowText, !item.available && styles.muted]}>
+              <Text style={[styles.rowTitle, item.available === false && styles.muted]}>
                 {item.label}
               </Text>
-              {item.available ? (
+              {item.available !== false ? (
                 <FontAwesome name="chevron-right" size={14} color={OrblyColors.textSecondary} />
               ) : (
                 <Text style={styles.soon}>Yakında</Text>
               )}
             </Pressable>
           ))}
-          <Pressable style={[styles.row, styles.danger]} onPress={signOut}>
-            <Text style={[styles.rowText, styles.dangerText]}>Çıkış yap</Text>
-          </Pressable>
         </ScrollView>
       ) : (
-        <ScrollView>
+        <View style={styles.detail}>
           {meta?.description ? (
             <Text style={styles.sectionDesc}>{meta.description}</Text>
           ) : null}
-          {meta?.items.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[styles.detailRow, !item.available && styles.rowDisabled]}
-              disabled={!item.available}
-              onPress={() => {
-                if (item.action === "edit-profile") setEditOpen(true);
-                else if (item.action === "mark-notifications-read") readAllNotifications.mutate();
-                else if (item.href) router.push(item.href as never);
-              }}
-            >
-              <View style={styles.detailText}>
-                <Text style={styles.detailTitle}>{item.title}</Text>
-                <Text style={styles.detailSub}>{item.description}</Text>
-              </View>
-              {item.available ? (
-                <FontAwesome name="chevron-right" size={14} color={OrblyColors.textSecondary} />
-              ) : (
-                <Text style={styles.soon}>Yakında</Text>
-              )}
-            </Pressable>
-          ))}
-          {!meta?.items.length && (
-            <Text style={styles.emptySection}>Bu bölüm yakında.</Text>
-          )}
-        </ScrollView>
+          <SectionPanel
+            section={section}
+            onEditProfile={() => setEditOpen(true)}
+            onSignOut={signOut}
+          />
+        </View>
       )}
 
       {user && (
@@ -136,6 +179,7 @@ const styles = StyleSheet.create({
     borderBottomColor: OrblyColors.border,
   },
   barTitle: { flex: 1, fontSize: 18, fontWeight: "800", color: OrblyColors.textPrimary },
+  detail: { flex: 1 },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -145,7 +189,9 @@ const styles = StyleSheet.create({
     borderBottomColor: OrblyColors.border,
   },
   rowDisabled: { opacity: 0.55 },
-  rowText: { fontSize: 17, fontWeight: "600", color: OrblyColors.textPrimary },
+  rowText: { flex: 1 },
+  rowTitle: { fontSize: 17, fontWeight: "600", color: OrblyColors.textPrimary },
+  rowSub: { fontSize: 14, color: OrblyColors.textSecondary, marginTop: 4 },
   muted: { color: OrblyColors.textSecondary },
   soon: { fontSize: 13, color: OrblyColors.textSecondary },
   sectionDesc: {
@@ -156,18 +202,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: OrblyColors.border,
   },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: OrblyColors.border,
-  },
-  detailText: { flex: 1 },
-  detailTitle: { fontSize: 17, fontWeight: "600", color: OrblyColors.textPrimary },
-  detailSub: { fontSize: 14, color: OrblyColors.textSecondary, marginTop: 4 },
   emptySection: { color: OrblyColors.textSecondary, padding: 24, textAlign: "center" },
-  danger: { marginTop: 24 },
-  dangerText: { color: OrblyColors.like },
 });

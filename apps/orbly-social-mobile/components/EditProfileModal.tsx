@@ -2,7 +2,7 @@ import { formatUserError } from "@orbly/api-client";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "@/components/ui/expo-image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,14 +15,28 @@ import {
   View,
 } from "react-native";
 
+import { AutoSaveStatus, type AutoSaveState } from "@/components/settings/AutoSaveStatus";
 import { OrblyColors } from "@/constants/Colors";
 import { api } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media-url";
+import { useDebouncedCallback } from "@/lib/use-debounced-callback";
 import { uploadImage } from "@/lib/upload";
 import { useAuthStore } from "@/lib/auth-store";
 import type { UserPublic } from "@orbly/types";
 
 type PickedMedia = { uri: string; name: string; type: string };
+
+function fieldsEqual(
+  fields: { displayName: string; bio: string; location: string; website: string },
+  user: UserPublic,
+) {
+  return (
+    fields.displayName.trim() === user.displayName &&
+    (fields.bio.trim() || "") === (user.bio ?? "") &&
+    (fields.location.trim() || "") === (user.location ?? "") &&
+    (fields.website.trim() || "") === (user.website ?? "")
+  );
+}
 
 export function EditProfileModal({
   user,
@@ -42,11 +56,15 @@ export function EditProfileModal({
   const [website, setWebsite] = useState(user.website ?? "");
   const [bannerPick, setBannerPick] = useState<PickedMedia | null>(null);
   const [avatarPick, setAvatarPick] = useState<PickedMedia | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<AutoSaveState>("idle");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!visible) return;
+  const userRef = useRef(user);
+  userRef.current = user;
+  const savingRef = useRef(false);
+  const savedFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetForm = useCallback(() => {
     setDisplayName(user.displayName);
     setBio(user.bio ?? "");
     setLocation(user.location ?? "");
@@ -54,7 +72,107 @@ export function EditProfileModal({
     setBannerPick(null);
     setAvatarPick(null);
     setError("");
-  }, [visible, user]);
+    setSaveState("idle");
+  }, [user]);
+
+  useEffect(() => {
+    if (visible) resetForm();
+  }, [visible, resetForm]);
+
+  const flashSaved = useCallback(() => {
+    setSaveState("saved");
+    if (savedFlashRef.current) clearTimeout(savedFlashRef.current);
+    savedFlashRef.current = setTimeout(() => setSaveState("idle"), 2000);
+  }, []);
+
+  const persist = useCallback(async () => {
+    if (!visible || savingRef.current) return;
+    const u = userRef.current;
+    const fields = { displayName, bio, location, website };
+    const hasText = !fieldsEqual(fields, u);
+    const hasMedia = !!bannerPick || !!avatarPick;
+    if (!hasText && !hasMedia) return;
+    if (!displayName.trim()) return;
+
+    savingRef.current = true;
+    setSaveState("saving");
+    setError("");
+    try {
+      const payload: Record<string, unknown> = {
+        displayName: displayName.trim(),
+        bio: bio.trim() || null,
+        location: location.trim() || null,
+        website: website.trim() || null,
+      };
+
+      if (bannerPick) {
+        payload.bannerUrl = await uploadImage(
+          bannerPick.uri,
+          bannerPick.name,
+          bannerPick.type,
+        );
+      }
+      if (avatarPick) {
+        payload.avatarUrl = await uploadImage(
+          avatarPick.uri,
+          avatarPick.name,
+          avatarPick.type,
+        );
+      }
+
+      const updated = await api.users.updateMe(payload);
+      setUser(updated.user);
+      userRef.current = updated.user;
+      onSaved?.(updated.user);
+      setBannerPick(null);
+      setAvatarPick(null);
+      flashSaved();
+    } catch (e) {
+      setError(formatUserError(e));
+      setSaveState("error");
+    } finally {
+      savingRef.current = false;
+    }
+  }, [
+    visible,
+    displayName,
+    bio,
+    location,
+    website,
+    bannerPick,
+    avatarPick,
+    setUser,
+    onSaved,
+    flashSaved,
+  ]);
+
+  const { schedule: scheduleTextSave, flush } = useDebouncedCallback(persist, 650);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (!fieldsEqual({ displayName, bio, location, website }, userRef.current)) {
+      scheduleTextSave();
+    }
+  }, [displayName, bio, location, website, visible, scheduleTextSave]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (bannerPick || avatarPick) void persist();
+  }, [bannerPick, avatarPick, visible, persist]);
+
+  const handleClose = () => {
+    void (async () => {
+      await flush();
+      onClose();
+    })();
+  };
+
+  useEffect(
+    () => () => {
+      if (savedFlashRef.current) clearTimeout(savedFlashRef.current);
+    },
+    [],
+  );
 
   const pickImage = async (target: "banner" | "avatar") => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -81,50 +199,6 @@ export function EditProfileModal({
     else setAvatarPick(picked);
   };
 
-  const save = async () => {
-    const trimmedName = displayName.trim();
-    if (!trimmedName) {
-      setError("Görünen ad boş olamaz.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-    try {
-      const payload: Record<string, unknown> = {
-        displayName: trimmedName,
-        bio: bio.trim() || null,
-        location: location.trim() || null,
-        website: website.trim() || null,
-      };
-
-      if (bannerPick) {
-        payload.bannerUrl = await uploadImage(
-          bannerPick.uri,
-          bannerPick.name,
-          bannerPick.type,
-        );
-      }
-
-      if (avatarPick) {
-        payload.avatarUrl = await uploadImage(
-          avatarPick.uri,
-          avatarPick.name,
-          avatarPick.type,
-        );
-      }
-
-      const updated = await api.users.updateMe(payload);
-      setUser(updated.user);
-      onSaved?.(updated.user);
-      onClose();
-    } catch (e) {
-      setError(formatUserError(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const bannerPreview = bannerPick?.uri ?? resolveMediaUrl(user.bannerUrl);
   const avatarPreview = avatarPick?.uri ?? resolveMediaUrl(user.avatarUrl);
 
@@ -132,18 +206,14 @@ export function EditProfileModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.sheet}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} disabled={saving}>
-            <Text style={styles.cancel}>İptal</Text>
+          <Pressable onPress={handleClose}>
+            <Text style={styles.cancel}>Kapat</Text>
           </Pressable>
           <Text style={styles.title}>Profili düzenle</Text>
-          <Pressable onPress={() => void save()} disabled={saving}>
-            {saving ? (
-              <ActivityIndicator color={OrblyColors.accent} />
-            ) : (
-              <Text style={styles.save}>Kaydet</Text>
-            )}
-          </Pressable>
+          <AutoSaveStatus state={saveState} error={error || undefined} />
         </View>
+
+        <Text style={styles.note}>Değişiklikler otomatik kaydedilir.</Text>
 
         <ScrollView keyboardShouldPersistTaps="handled" bounces={false}>
           <View style={styles.bannerWrap}>
@@ -156,7 +226,7 @@ export function EditProfileModal({
               <MediaPickButton
                 label="Kapak fotoğrafı yükle"
                 onPress={() => void pickImage("banner")}
-                disabled={saving}
+                disabled={saveState === "saving"}
               />
             </View>
           </View>
@@ -174,7 +244,7 @@ export function EditProfileModal({
                 <MediaPickButton
                   label="Profil fotoğrafı yükle"
                   onPress={() => void pickImage("avatar")}
-                  disabled={saving}
+                  disabled={saveState === "saving"}
                 />
               </View>
             </View>
@@ -197,7 +267,6 @@ export function EditProfileModal({
               onChangeText={setWebsite}
               placeholder="https://"
             />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
           </View>
         </ScrollView>
       </View>
@@ -221,7 +290,11 @@ function MediaPickButton({
       style={[styles.mediaBtn, disabled && styles.mediaBtnDisabled]}
       accessibilityLabel={label}
     >
-      <FontAwesome name="camera" size={20} color="#fff" />
+      {disabled ? (
+        <ActivityIndicator color="#fff" size="small" />
+      ) : (
+        <FontAwesome name="camera" size={20} color="#fff" />
+      )}
     </Pressable>
   );
 }
@@ -266,10 +339,24 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: OrblyColors.border,
+    gap: 8,
   },
-  cancel: { color: OrblyColors.textSecondary, fontSize: 16, width: 56 },
-  title: { fontSize: 17, fontWeight: "700", color: OrblyColors.textPrimary },
-  save: { color: OrblyColors.accent, fontWeight: "700", fontSize: 16, width: 56, textAlign: "right" },
+  cancel: { color: OrblyColors.textSecondary, fontSize: 16, minWidth: 48 },
+  title: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: OrblyColors.textPrimary,
+    flex: 1,
+    textAlign: "center",
+  },
+  note: {
+    fontSize: 13,
+    color: OrblyColors.textSecondary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: OrblyColors.border,
+  },
   bannerWrap: {
     height: 140,
     backgroundColor: OrblyColors.bgSecondary,
@@ -332,5 +419,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   inputMulti: { minHeight: 80, textAlignVertical: "top" },
-  error: { color: OrblyColors.like, fontSize: 14 },
 });

@@ -34,8 +34,8 @@ export function AuthBootstrap() {
 
     void withoutUnauthorizedLogout(async () => {
       await migratePersistFromSecureStore();
-      await ensureFreshAccessToken();
-      reconnectSocket();
+      const token = await ensureFreshAccessToken();
+      if (token) reconnectSocket(token);
       try {
         const { user } = await api.auth.me();
         useAuthStore.getState().setUser(user);

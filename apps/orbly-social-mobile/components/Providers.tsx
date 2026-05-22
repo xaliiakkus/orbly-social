@@ -2,6 +2,7 @@ import { OrblyProvider } from "@orbly/features";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { ThemedAppRoot } from "@/components/OrblyThemeProvider";
 import { AuthBootstrap } from "@/components/AuthBootstrap";
 import { RealtimeBridge } from "@/components/RealtimeBridge";
 import { ReplyComposeShell } from "@/components/ReplyComposeShell";
@@ -21,10 +22,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
           return uploadImage(file.uri, file.name, file.type);
         }}
       >
-        <SocketBootstrap />
         <AuthBootstrap />
         <RealtimeBridge />
-        <ReplyComposeShell>{children}</ReplyComposeShell>
+        <SocketBootstrap />
+        <ThemedAppRoot>
+          <ReplyComposeShell>{children}</ReplyComposeShell>
+        </ThemedAppRoot>
       </OrblyProvider>
     </QueryClientProvider>
   );

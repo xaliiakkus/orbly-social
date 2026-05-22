@@ -11,5 +11,5 @@ export function applyAccountSession(account: SavedDeviceAccount) {
       expiresIn: 900,
     },
   });
-  reconnectSocket();
+  reconnectSocket(account.accessToken);
 }

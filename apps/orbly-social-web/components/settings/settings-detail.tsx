@@ -1,18 +1,49 @@
 "use client";
 
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { SettingsAccountPanel } from "@/components/settings/panels/settings-account-panel";
+import { SettingsAppearancePanel } from "@/components/settings/panels/settings-appearance-panel";
+import { SettingsLanguagePanel } from "@/components/settings/panels/settings-language-panel";
+import { SettingsNotificationsPanel } from "@/components/settings/panels/settings-notifications-panel";
+import { SettingsPrivacyPanel } from "@/components/settings/panels/settings-privacy-panel";
+import { SettingsSecurityPanel } from "@/components/settings/panels/settings-security-panel";
 import {
   SECTION_META,
+  SETTINGS_CUSTOM_PANELS,
   type SettingsDetailItem,
   type SettingsSectionId,
 } from "@/components/settings/settings-config";
 import { useReadAllNotifications } from "@orbly/features";
 
-import { useAuthStore } from "@/lib/auth-store";
 import { cn } from "@/lib/cn";
+
+function CustomPanel({
+  sectionId,
+  onEditProfile,
+}: {
+  sectionId: SettingsSectionId;
+  onEditProfile: () => void;
+}) {
+  switch (sectionId) {
+    case "account":
+      return <SettingsAccountPanel onEditProfile={onEditProfile} />;
+    case "appearance":
+      return <SettingsAppearancePanel />;
+    case "privacy":
+      return <SettingsPrivacyPanel />;
+    case "notifications":
+      return <SettingsNotificationsPanel />;
+    case "security":
+      return <SettingsSecurityPanel />;
+    case "language":
+      return <SettingsLanguagePanel />;
+    default:
+      return null;
+  }
+}
 
 export function SettingsDetail({
   sectionId,
@@ -24,6 +55,7 @@ export function SettingsDetail({
   const router = useRouter();
   const meta = SECTION_META[sectionId];
   const readAllNotifications = useReadAllNotifications();
+  const useCustom = SETTINGS_CUSTOM_PANELS.has(sectionId);
 
   const handleItem = (item: SettingsDetailItem) => {
     if (!item.available) return;
@@ -36,7 +68,11 @@ export function SettingsDetail({
       return;
     }
     if (item.href) {
-      router.push(item.href);
+      if (item.href.startsWith("/settings")) {
+        router.push(item.href);
+      } else {
+        router.push(item.href);
+      }
     }
   };
 
@@ -49,7 +85,9 @@ export function SettingsDetail({
         </p>
       </header>
 
-      {meta.items.length > 0 ? (
+      {useCustom ? (
+        <CustomPanel sectionId={sectionId} onEditProfile={onEditProfile} />
+      ) : meta.items.length > 0 ? (
         <div className="divide-y divide-border flex-1">
           {meta.items.map((item) => {
             const Icon = item.icon;
@@ -99,34 +137,6 @@ export function SettingsDetail({
       ) : (
         <p className="px-4 py-8 text-text-secondary text-[15px]">Bu bölüm yakında kullanıma sunulacak.</p>
       )}
-
-      {sectionId === "account" && (
-        <div className="border-t border-border shrink-0">
-          <LogoutRow />
-        </div>
-      )}
     </section>
-  );
-}
-
-function LogoutRow() {
-  const router = useRouter();
-  const logout = useAuthStore((s) => s.logout);
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        logout();
-        router.push("/login");
-      }}
-      className="flex items-start gap-4 px-4 py-4 w-full text-left hover:bg-bg-hover transition-colors text-like"
-    >
-      <LogOut className="h-6 w-6 shrink-0" strokeWidth={1.75} />
-      <div className="min-w-0 flex-1">
-        <p className="font-bold text-[15px] leading-5">Oturumu kapat</p>
-        <p className="text-text-secondary text-[15px] leading-5">@hesabından çıkış yap</p>
-      </div>
-    </button>
   );
 }

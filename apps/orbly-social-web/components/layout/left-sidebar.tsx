@@ -46,7 +46,7 @@ export function LeftSidebar() {
           href="/home"
           className="flex items-center gap-3 p-3 w-fit xl:w-full rounded-full hover:bg-bg-hover transition-colors shrink-0"
         >
-          <Logo />
+          <Logo linked={false} />
           <OrblyWordmark className="hidden xl:inline" />
         </Link>
 
