@@ -4,7 +4,14 @@ from app.commands.registry import dispatch
 from app.deps import UserId
 from app.errors import AppError
 from app.models.user import User
-from app.schemas.auth import LoginIn, OAuthIn, OnboardingIn, RefreshIn
+from app.schemas.auth import (
+    ForgotPasswordIn,
+    LoginIn,
+    OAuthIn,
+    OnboardingIn,
+    RefreshIn,
+    ResetPasswordIn,
+)
 from app.services.serializers import user_out
 
 router = APIRouter()
@@ -47,6 +54,22 @@ async def refresh_token(body: RefreshIn):
     """Renew access token when the short-lived JWT expires."""
     try:
         return await dispatch("auth.refresh", None, body.model_dump())
+    except AppError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+
+
+@router.post("/forgot-password")
+async def forgot_password_http(body: ForgotPasswordIn):
+    try:
+        return await dispatch("auth.forgotPassword", None, body.model_dump())
+    except AppError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
+
+
+@router.post("/reset-password")
+async def reset_password_http(body: ResetPasswordIn):
+    try:
+        return await dispatch("auth.resetPassword", None, body.model_dump())
     except AppError as exc:
         raise HTTPException(exc.status, exc.message) from exc
 

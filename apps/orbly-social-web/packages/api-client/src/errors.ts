@@ -5,6 +5,12 @@ const EXACT_MESSAGES: Record<string, string> = {
   Unauthorized: "Oturumun sona erdi. Lütfen tekrar giriş yap.",
   "User not found": "Kullanıcı bulunamadı.",
   "Invalid refresh token": "Oturumun süresi doldu. Lütfen tekrar giriş yap.",
+  "Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş":
+    "Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş. Yeni bağlantı iste.",
+  "Bu hesap için şifre sıfırlama kullanılamaz":
+    "Bu hesap sosyal giriş ile oluşturulmuş; e-posta ile şifre sıfırlanamaz.",
+  "E-posta gönderilemedi. Lütfen daha sonra tekrar dene.":
+    "E-posta gönderilemedi. Lütfen biraz sonra tekrar dene.",
   "Invalid Google token": "Google ile giriş başarısız. Tekrar dene.",
   "GIF search is not configured (set TENOR_API_KEY and/or GIPHY_API_KEY)":
     "GIF araması şu an kapalı.",

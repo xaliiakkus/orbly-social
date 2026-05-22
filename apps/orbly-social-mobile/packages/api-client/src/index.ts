@@ -238,6 +238,48 @@ export function createApiClient(options: ApiClientOptions) {
           });
         }
       },
+      forgotPassword: async (body: { email: string; username: string }) => {
+        try {
+          return await rpc<{ ok: boolean; message: string }>(
+            "auth.forgotPassword",
+            body,
+          );
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<{ ok: boolean; message: string }>(
+            "/v1/auth/forgot-password",
+            {
+              method: "POST",
+              body: JSON.stringify(body),
+              auth: false,
+              skipRefresh: true,
+            },
+          );
+        }
+      },
+      resetPassword: async (body: {
+        token: string;
+        password: string;
+        confirmPassword: string;
+      }) => {
+        try {
+          return await rpc<{ ok: boolean; message: string }>(
+            "auth.resetPassword",
+            body,
+          );
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<{ ok: boolean; message: string }>(
+            "/v1/auth/reset-password",
+            {
+              method: "POST",
+              body: JSON.stringify(body),
+              auth: false,
+              skipRefresh: true,
+            },
+          );
+        }
+      },
     },
     media: {
       presign: async (

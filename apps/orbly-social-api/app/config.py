@@ -134,5 +134,16 @@ class Settings(BaseSettings):
     livekit_api_key: str = Field(default="", validation_alias="LIVEKIT_API_KEY")
     livekit_api_secret: str = Field(default="", validation_alias="LIVEKIT_API_SECRET")
 
+    web_app_url: str = Field(
+        default="http://localhost:3000",
+        validation_alias=AliasChoices("WEB_APP_URL", "NEXTAUTH_URL"),
+    )
+    smtp_host: str | None = Field(default=None, validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_user: str | None = Field(default=None, validation_alias="SMTP_USER")
+    smtp_password: str | None = Field(default=None, validation_alias="SMTP_PASSWORD")
+    smtp_use_tls: bool = Field(default=True, validation_alias="SMTP_USE_TLS")
+    email_from: str | None = Field(default=None, validation_alias="EMAIL_FROM")
+
 
 settings = Settings()
