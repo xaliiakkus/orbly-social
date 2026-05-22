@@ -12,6 +12,7 @@
     "hoistingLimits": "workspaces"
   },
   "scripts": {
+    "eas-build-pre-install": "corepack enable",
     "dev": "expo start",
     "start": "expo start",
     "android": "expo run:android",
