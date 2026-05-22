@@ -8,7 +8,7 @@ export const HEADER_BELOW_STATUS_PADDING = 11;
 export const HEADER_CONTENT_MIN_HEIGHT = 56;
 
 /** İkon satırı yüksekliği (home indicator hariç) */
-export const TAB_BAR_CONTENT_HEIGHT = 53;
+export const TAB_BAR_CONTENT_HEIGHT = 54;
 
 /** @deprecated useTabBarMetrics().totalHeight */
 export const TAB_BAR_HEIGHT = TAB_BAR_CONTENT_HEIGHT;
