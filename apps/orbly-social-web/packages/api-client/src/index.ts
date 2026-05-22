@@ -415,7 +415,10 @@ export function createApiClient(options: ApiClientOptions) {
           }`,
         ),
       view: (id: string) =>
-        callRpc<{ success: boolean }>("posts.view", { postId: id }),
+        callRpc<{ success: boolean; counted?: boolean; viewCount?: number }>(
+          "posts.view",
+          { postId: id },
+        ),
       votePoll: (id: string, optionId: string) =>
         callRpc<{ post: PostPublic }>("posts.poll.vote", { postId: id, optionId }),
     },

@@ -2,7 +2,14 @@ import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useApi, useOrblyQueryClient } from "../context";
-import { applyPostLikeToCache } from "../realtime/cache";
+import { applyPostLikeToCache, applyPostViewCountToCache } from "../realtime/cache";
+
+/** Oturum içi: aynı kullanıcı + gönderi için tek RPC */
+const sessionRecordedViews = new Set<string>();
+
+function viewSessionKey(viewerId: string, postId: string) {
+  return `${viewerId}:${postId}`;
+}
 
 export function usePostLike(postId: string, initialLiked = false, initialCount = 0) {
   const api = useApi();
@@ -85,9 +92,40 @@ export function usePostBookmark(postId: string, initial = false) {
   return { bookmarked, toggle };
 }
 
-export function usePostView(postId: string) {
+export type PostViewResult = {
+  success: boolean;
+  counted?: boolean;
+  viewCount?: number;
+};
+
+/**
+ * Görüntülenme — sunucuda kullanıcı başına bir kez; istemcide oturumda tek istek.
+ */
+export function usePostView(postId: string, viewerId?: string | null, authorId?: string | null) {
   const api = useApi();
-  return useMutation({
+  const qc = useOrblyQueryClient();
+  const pendingRef = useRef(false);
+
+  const mutation = useMutation({
     mutationFn: () => api.posts.view(postId),
+    onSuccess: (res: PostViewResult) => {
+      if (res.counted && typeof res.viewCount === "number") {
+        applyPostViewCountToCache(qc, postId, res.viewCount);
+      }
+    },
   });
+
+  const recordView = useCallback(() => {
+    if (!viewerId || !postId) return;
+    if (authorId && viewerId === authorId) return;
+    const key = viewSessionKey(viewerId, postId);
+    if (sessionRecordedViews.has(key) || pendingRef.current) return;
+    sessionRecordedViews.add(key);
+    pendingRef.current = true;
+    void mutation.mutateAsync().finally(() => {
+      pendingRef.current = false;
+    });
+  }, [viewerId, authorId, postId, mutation]);
+
+  return { recordView, isPending: mutation.isPending };
 }

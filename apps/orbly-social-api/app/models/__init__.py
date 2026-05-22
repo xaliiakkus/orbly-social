@@ -3,6 +3,7 @@ from app.models.post import Post
 from app.models.orbit import Orbit
 from app.models.follow import Follow
 from app.models.like import Like
+from app.models.post_view import PostView
 from app.models.bookmark import Bookmark
 from app.models.notification import Notification
 from app.models.conversation import Conversation
@@ -16,6 +17,7 @@ ALL_DOCUMENTS = [
     Orbit,
     Follow,
     Like,
+    PostView,
     Bookmark,
     Notification,
     Conversation,

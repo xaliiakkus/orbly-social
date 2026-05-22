@@ -12,6 +12,7 @@ from app.commands.json_util import to_jsonable
 from app.commands.registry import action
 from app.errors import AppError
 from app.models.like import Like
+from app.models.post_view import PostView
 from app.models.orbit import Orbit
 from app.models.post import Poll, PollOption, Post
 from app.models.user import User
@@ -304,10 +305,47 @@ async def vote_poll(user_id: str | None, data: dict[str, Any]) -> dict[str, Any]
     return to_jsonable({"post": enriched[0]})
 
 
-@action("posts.view", public=True)
-async def view_post(_user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
+@action("posts.view")
+async def view_post(user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
+    """Her kullanıcı–gönderi çifti için en fazla bir görüntülenme."""
     post_id = data.get("postId") or data.get("id")
     if not post_id:
         raise AppError("postId required", 400)
-    await Post.find_one(Post.id == PydanticObjectId(post_id)).update({"$inc": {"stats.viewCount": 1}})
-    return {"success": True}
+    if not user_id:
+        raise AppError("Unauthorized", 401)
+
+    post = await Post.find_one(Post.id == PydanticObjectId(post_id), Post.isDeleted == False)
+    if not post:
+        raise AppError("Post not found", 404)
+
+    uid, pid = PydanticObjectId(user_id), PydanticObjectId(post_id)
+    if post.authorId == uid:
+        return {
+            "success": True,
+            "counted": False,
+            "viewCount": post.stats.viewCount,
+        }
+
+    existing = await PostView.find_one(PostView.userId == uid, PostView.postId == pid)
+    if existing:
+        return {
+            "success": True,
+            "counted": False,
+            "viewCount": post.stats.viewCount,
+        }
+
+    try:
+        await PostView(userId=uid, postId=pid).insert()
+    except DuplicateKeyError:
+        return {
+            "success": True,
+            "counted": False,
+            "viewCount": post.stats.viewCount,
+        }
+
+    await Post.find_one(Post.id == pid).update({"$inc": {"stats.viewCount": 1}})
+    updated = await Post.get(post_id)
+    view_count = updated.stats.viewCount if updated else post.stats.viewCount + 1
+    if updated:
+        await broadcast_post_stats(post_id, actor_id=user_id, action="view", post=updated)
+    return {"success": True, "counted": True, "viewCount": view_count}

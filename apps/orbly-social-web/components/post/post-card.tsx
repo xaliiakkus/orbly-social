@@ -143,8 +143,12 @@ export function PostCard({
     getRepostDisplayCount(post),
     post.myRepostId,
   );
-  const view = usePostView(post.id);
   const ownPost = viewer?.id === repostTarget.author.id;
+  const { recordView } = usePostView(
+    repostTargetId,
+    viewer?.id,
+    repostTarget.author.id,
+  );
 
   const copyPostLink = async () => {
     const url = getPostShareUrl(
@@ -161,8 +165,8 @@ export function PostCard({
   };
 
   useEffect(() => {
-    view.mutate();
-  }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    recordView();
+  }, [repostTargetId, recordView]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -480,10 +484,12 @@ export function PostCard({
               <Bookmark className={cn("h-[18px] w-[18px]", bookmarked && "fill-current")} />
             </button>
 
-            {post.stats.viewCount > 0 ? (
+            {repostTarget.stats.viewCount > 0 ? (
               <div className="flex items-center gap-1.5 p-2 text-text-secondary pointer-events-none">
                 <BarChart3 className="h-[18px] w-[18px]" />
-                <span className="text-[13px] tabular-nums">{formatCount(post.stats.viewCount)}</span>
+                <span className="text-[13px] tabular-nums">
+                  {formatCount(repostTarget.stats.viewCount)}
+                </span>
               </div>
             ) : null}
 

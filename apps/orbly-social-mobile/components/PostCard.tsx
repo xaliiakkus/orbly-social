@@ -151,12 +151,16 @@ function PostCardInner({
     getRepostDisplayCount(post),
     post.myRepostId,
   );
-  const view = usePostView(post.id);
   const ownPost = viewer?.id === repostTarget.author.id;
+  const { recordView } = usePostView(
+    repostTargetId,
+    viewer?.id,
+    repostTarget.author.id,
+  );
 
   useEffect(() => {
-    view.mutate();
-  }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    recordView();
+  }, [repostTargetId, recordView]);
 
   const threadRootId = threadRootIdProp ?? post.replyToId ?? post.id;
   const openPost = () => router.push(`/post/${threadRootId}`);
@@ -415,7 +419,11 @@ function PostCardInner({
             />
             <PostAction
               icon="bar-chart"
-              count={post.stats.viewCount > 0 ? post.stats.viewCount : undefined}
+              count={
+                repostTarget.stats.viewCount > 0
+                  ? repostTarget.stats.viewCount
+                  : undefined
+              }
             />
             <PostAction icon="share-square-o" />
           </View>

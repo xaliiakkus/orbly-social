@@ -152,6 +152,70 @@ export function applyPostRepostToCache(
   );
 }
 
+export function applyPostViewCountToCache(
+  qc: QueryClient,
+  postId: string,
+  viewCount: number,
+) {
+  const patchPost = (p: PostPublic): PostPublic => {
+    if (p.id === postId) {
+      return { ...p, stats: { ...p.stats, viewCount } };
+    }
+    const embed = (p as PostWithRepostEmbed).repostOf;
+    if (embed?.id === postId) {
+      return {
+        ...p,
+        repostOf: { ...embed, stats: { ...embed.stats, viewCount } },
+      };
+    }
+    return p;
+  };
+
+  qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: ["feed"] }, (old) => {
+    if (!old?.pages) return old;
+    return {
+      ...old,
+      pages: old.pages.map((page) => ({
+        ...page,
+        data: page.data.map(patchPost),
+      })),
+    };
+  });
+
+  qc.setQueriesData<{ post: PostPublic }>({ queryKey: ["post", postId] }, (old) => {
+    if (!old?.post) return old;
+    return { post: patchPost(old.post) };
+  });
+
+  qc.setQueriesData<InfiniteData<FeedPage>>(
+    { queryKey: ["profile-posts"] },
+    (old) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: page.data.map(patchPost),
+        })),
+      };
+    },
+  );
+
+  qc.setQueriesData<InfiniteData<FeedPage>>(
+    { queryKey: ["orbit-posts"] },
+    (old) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          data: page.data.map(patchPost),
+        })),
+      };
+    },
+  );
+}
+
 export function applyPostLikeToCache(qc: QueryClient, postId: string, liked: boolean) {
   const patch = { likedByMe: liked };
   qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: ["feed"] }, (old) => {
