@@ -44,10 +44,10 @@ export const api = createApiClient({
     if (suppressUnauthorizedLogout) return;
     void refreshTokensSilently();
   },
-  rpc: (action, data) => {
+  rpc: <T>(action: string, data?: Record<string, unknown>) => {
     const anonymous = PUBLIC_AUTH_ACTIONS.has(action);
     if (DISCONNECT_SOCKET_ACTIONS.has(action)) disconnectSocket();
     const token = anonymous ? null : useAuthStore.getState().accessToken;
-    return socketRpc(getSocket(token), action, data ?? {});
+    return socketRpc<T>(getSocket(token), action, data ?? {});
   },
 });

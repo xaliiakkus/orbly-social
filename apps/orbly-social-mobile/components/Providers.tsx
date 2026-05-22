@@ -9,7 +9,10 @@ import { RealtimeBridge } from "@/components/RealtimeBridge";
 import { ReplyComposeShell } from "@/components/ReplyComposeShell";
 import { SocketBootstrap } from "@/components/SocketBootstrap";
 import { api } from "@/lib/api";
+import { installRpcRejectionHandler } from "@/lib/install-rpc-rejection-handler";
 import { uploadImage } from "@/lib/upload";
+
+installRpcRejectionHandler();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient());

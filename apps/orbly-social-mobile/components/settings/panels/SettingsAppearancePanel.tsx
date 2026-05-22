@@ -1,13 +1,15 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { SettingsAutoSaveNote } from "@/components/settings/SettingsAutoSaveNote";
 import { SettingsToggle } from "@/components/settings/SettingsToggle";
 import { OrblyColors } from "@/constants/Colors";
+import { createSettingsAppearanceStyles } from "@/components/settings/settings-appearance-styles";
 import { THEME_PRESETS } from "@/lib/theme/presets";
 import { useThemeStore } from "@/lib/theme-store";
 import { useDebouncedCallback } from "@/lib/use-debounced-callback";
+import { useThemedStyles } from "@/lib/use-themed-styles";
 
 const PRESET_ACCENTS: Record<string, string> = {
   "orbly-dark": "#1d9bf0",
@@ -27,6 +29,7 @@ export function SettingsAppearancePanel() {
   const setAccentOverride = useThemeStore((s) => s.setAccentOverride);
   const setReduceMotion = useThemeStore((s) => s.setReduceMotion);
   const resetTheme = useThemeStore((s) => s.resetTheme);
+  const styles = useThemedStyles(createSettingsAppearanceStyles);
   const [hexDraft, setHexDraft] = useState(accentOverride ?? "");
 
   useEffect(() => {
@@ -87,6 +90,11 @@ export function SettingsAppearancePanel() {
           value={hexDraft}
           onChangeText={(v) => {
             setHexDraft(v);
+            const trimmed = v.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) {
+              setAccentOverride(trimmed);
+              return;
+            }
             scheduleAccent(v);
           }}
           placeholder={PRESET_ACCENTS[presetId] ?? "#1d9bf0"}
@@ -114,69 +122,3 @@ export function SettingsAppearancePanel() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  hint: {
-    padding: 16,
-    fontSize: 15,
-    color: OrblyColors.textSecondary,
-    lineHeight: 22,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: OrblyColors.border,
-  },
-  sectionTitle: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    fontSize: 13,
-    fontWeight: "800",
-    color: OrblyColors.textSecondary,
-    textTransform: "uppercase",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  card: {
-    width: "47%",
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: OrblyColors.border,
-    minHeight: 88,
-  },
-  cardActive: { borderColor: OrblyColors.accent, borderWidth: 2 },
-  swatch: { width: 32, height: 32, borderRadius: 16, marginBottom: 8 },
-  cardTitle: { fontSize: 14, fontWeight: "700" },
-  check: { position: "absolute", top: 8, right: 8 },
-  hexRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  hexInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: OrblyColors.border,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    color: OrblyColors.textPrimary,
-    backgroundColor: OrblyColors.bgSecondary,
-    fontFamily: "monospace",
-  },
-  resetLink: { color: OrblyColors.accent, fontWeight: "700", fontSize: 15 },
-  resetBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 18,
-    marginBottom: 24,
-  },
-  resetText: { color: OrblyColors.textSecondary, fontWeight: "600", fontSize: 15 },
-});

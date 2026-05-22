@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { FeedSkeleton } from "@/components/FeedSkeleton";
 import { PostCard } from "@/components/PostCard";
 import { OrblyColors } from "@/constants/Colors";
+import { useThemeStore } from "@/lib/theme-store";
 import type { PostPublic } from "@orbly/types";
 
 type Props = {
@@ -53,8 +54,10 @@ export const FeedList = forwardRef<FlatListType<PostPublic>, Props>(function Fee
   ref,
 ) {
   const query = useFeed(mode);
+  const themeEpoch = useThemeStore((s) => s.themeEpoch);
   const posts: PostPublic[] = query.data?.pages.flatMap((p) => p.data) ?? [];
   const listVersion = useMemo(() => posts.map(feedRowKey).join("|"), [posts]);
+  const listExtraData = `${listVersion}:${themeEpoch}`;
   const refreshRef = useRef(() => {
     onRefreshBanner?.();
     void query.refetch();
@@ -114,7 +117,7 @@ export const FeedList = forwardRef<FlatListType<PostPublic>, Props>(function Fee
       ref={ref}
       style={styles.flex}
       data={posts}
-      extraData={listVersion}
+      extraData={listExtraData}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       removeClippedSubviews

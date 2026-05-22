@@ -8,6 +8,26 @@ export class RpcError extends Error {
   }
 }
 
+/** Bağlantı / zaman aşımı — sunucu iş kuralı hatası değil */
+export function isRpcTransportError(error: unknown): error is RpcError {
+  return error instanceof RpcError && error.status === 0;
+}
+
+const TRANSPORT_LABEL: Record<string, string> = {
+  timeout: "zaman aşımı",
+  connection: "bağlantı hatası",
+  rpc: "RPC zaman aşımı",
+};
+
+/** Metro terminalinde görünür; kullanıcıya Alert/LogBox göstermeyin */
+export function warnRpcTransportError(error: unknown, action?: string): void {
+  if (!isRpcTransportError(error)) return;
+  const rpcErr = error;
+  const detail = TRANSPORT_LABEL[rpcErr.message] ?? rpcErr.message;
+  const suffix = action ? ` (${action})` : "";
+  console.warn(`[Orbly socket] Geçici bağlantı sorunu${suffix}: ${detail}`);
+}
+
 export type RpcCaller = <T>(
   action: string,
   data?: Record<string, unknown>,

@@ -105,8 +105,14 @@ export function SettingsAppearancePanel() {
             type="text"
             value={hexDraft}
             onChange={(e) => {
-              setHexDraft(e.target.value);
-              scheduleAccentSave(e.target.value);
+              const value = e.target.value;
+              setHexDraft(value);
+              const trimmed = value.trim();
+              if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) {
+                setAccentOverride(trimmed);
+                return;
+              }
+              scheduleAccentSave(value);
             }}
             placeholder="#1d9bf0"
             className="flex-1 rounded-xl border border-border bg-bg-secondary px-4 py-3 text-[15px] outline-none focus:border-accent font-mono"

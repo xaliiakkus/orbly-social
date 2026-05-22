@@ -1,4 +1,4 @@
-import { formatUserError } from "@orbly/api-client";
+import { formatUserError, isRpcTransportError, warnRpcTransportError } from "@orbly/api-client";
 import { useMutation } from "@tanstack/react-query";
 import type { UserProfileResponse } from "@orbly/types";
 
@@ -68,9 +68,15 @@ export function useFollowToggle(
       if (ctx?.prev) {
         qc.setQueryData(["profile", username], ctx.prev);
       }
+      if (isRpcTransportError(error)) {
+        warnRpcTransportError(error, "users.follow");
+        return;
+      }
+      const message = formatUserError(error);
+      if (!message) return;
       options?.onFeedback?.({
         type: "error",
-        message: formatUserError(error),
+        message,
       });
     },
     onSettled: () => {

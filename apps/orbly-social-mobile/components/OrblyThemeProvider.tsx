@@ -1,35 +1,30 @@
-import React, { useEffect, useState } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 
-import { applyOrblyColors } from "@/lib/orbly-colors-runtime";
-import { resolveThemeColors } from "@/lib/theme/resolve";
+import { syncMobileTheme } from "@/lib/theme/sync-theme";
 import { useThemeStore } from "@/lib/theme-store";
 
-function syncColors() {
-  const { presetId, accentOverride } = useThemeStore.getState();
-  applyOrblyColors(resolveThemeColors(presetId, accentOverride));
-}
-
-/** Tema persist + renk uygulama; key ile alt ağaç remount */
-export function ThemedAppRoot({ children }: { children: React.ReactNode }) {
+/** Tema persist + renk paleti; store setter'ları anında uygular */
+export function ThemedAppRoot({ children }: { children: ReactNode }) {
   const presetId = useThemeStore((s) => s.presetId);
   const accentOverride = useThemeStore((s) => s.accentOverride);
-  const [ready, setReady] = useState(useThemeStore.persist.hasHydrated());
+  useThemeStore((s) => s.themeEpoch);
 
-  useEffect(() => {
-    syncColors();
+  useLayoutEffect(() => {
+    syncMobileTheme(presetId, accentOverride);
+  }, [presetId, accentOverride]);
+
+  useLayoutEffect(() => {
     const unsub = useThemeStore.persist.onFinishHydration(() => {
-      syncColors();
-      setReady(true);
+      const s = useThemeStore.getState();
+      syncMobileTheme(s.presetId, s.accentOverride);
+      useThemeStore.setState({ themeEpoch: s.themeEpoch + 1 });
     });
-    if (useThemeStore.persist.hasHydrated()) setReady(true);
+    if (useThemeStore.persist.hasHydrated()) {
+      const s = useThemeStore.getState();
+      syncMobileTheme(s.presetId, s.accentOverride);
+    }
     return unsub;
   }, []);
 
-  useEffect(() => {
-    syncColors();
-  }, [presetId, accentOverride]);
-
-  if (!ready) return null;
-
-  return <React.Fragment key={`${presetId}-${accentOverride ?? ""}`}>{children}</React.Fragment>;
+  return children;
 }

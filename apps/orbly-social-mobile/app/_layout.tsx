@@ -1,4 +1,3 @@
-import { ThemeProvider, DarkTheme } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -7,6 +6,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 import "react-native-reanimated";
 
+import { DynamicNavTheme } from "@/components/DynamicNavTheme";
 import { Providers } from "@/components/Providers";
 import { OrblyColors } from "@/constants/Colors";
 import * as SecureStore from "expo-secure-store";
@@ -16,18 +16,6 @@ import { hideSplashOnce, preventSplashAutoHide } from "@/lib/splash";
 export { ErrorBoundary } from "expo-router";
 
 preventSplashAutoHide();
-
-const OrblyTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: OrblyColors.bgPrimary,
-    card: OrblyColors.bgPrimary,
-    text: OrblyColors.textPrimary,
-    border: OrblyColors.border,
-    primary: OrblyColors.accent,
-  },
-};
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -49,7 +37,7 @@ export default function RootLayout() {
 
   return (
     <Providers>
-      <ThemeProvider value={OrblyTheme}>
+      <DynamicNavTheme>
         <AuthGate />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
@@ -68,7 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ title: "Ayarlar" }} />
           <Stack.Screen name="profile/[username]" options={{ title: "Profil" }} />
         </Stack>
-      </ThemeProvider>
+      </DynamicNavTheme>
     </Providers>
   );
 }

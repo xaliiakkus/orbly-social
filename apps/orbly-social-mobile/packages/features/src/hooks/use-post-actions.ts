@@ -1,3 +1,4 @@
+import { isRpcTransportError, warnRpcTransportError } from "@orbly/api-client";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -122,9 +123,14 @@ export function usePostView(postId: string, viewerId?: string | null, authorId?:
     if (sessionRecordedViews.has(key) || pendingRef.current) return;
     sessionRecordedViews.add(key);
     pendingRef.current = true;
-    void mutation.mutateAsync().finally(() => {
-      pendingRef.current = false;
-    });
+    void mutation
+      .mutateAsync()
+      .catch((err) => {
+        if (isRpcTransportError(err)) warnRpcTransportError(err, "posts.view");
+      })
+      .finally(() => {
+        pendingRef.current = false;
+      });
   }, [viewerId, authorId, postId, mutation]);
 
   return {

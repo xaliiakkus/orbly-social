@@ -6,6 +6,7 @@ import { StyleSheet } from "react-native";
 import { OrblyColors } from "@/constants/Colors";
 import { TAB_BAR_CONTENT_HEIGHT, useTabBarMetrics } from "@/constants/layout";
 import { useAuthStore } from "@/lib/auth-store";
+import { useThemeStore } from "@/lib/theme-store";
 
 type IonIcon = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -19,6 +20,7 @@ function tabIcon(
 }
 
 export default function TabLayout() {
+  useThemeStore((s) => s.themeEpoch);
   const authed = useAuthStore((s) => !!s.accessToken);
   const { data: notifUnread = 0 } = useNotificationUnreadCount({ enabled: authed });
   const { data: msgUnread = 0 } = useConversationsUnreadCount({ enabled: authed });

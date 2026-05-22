@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 
 import { ComposeFab } from "@/components/ComposeFab";
 import { OrblyColors } from "@/constants/Colors";
+import { useThemeStore } from "@/lib/theme-store";
 
 /** Sekme ekranları: X arka plan + isteğe bağlı FAB */
 export function TabScaffold({
@@ -12,14 +13,11 @@ export function TabScaffold({
   children: ReactNode;
   fab?: boolean;
 }) {
+  useThemeStore((s) => s.themeEpoch);
   return (
-    <View style={styles.root}>
+    <View style={{ flex: 1, backgroundColor: OrblyColors.bgPrimary }}>
       {children}
       {fab ? <ComposeFab /> : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: OrblyColors.bgPrimary },
-});

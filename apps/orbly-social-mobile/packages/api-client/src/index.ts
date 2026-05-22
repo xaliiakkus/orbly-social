@@ -26,7 +26,14 @@ export type {
   PostPublic,
   UserPublic,
 };
-export { RpcError, socketRpc, type RpcCaller, type SocketLike } from "./rpc";
+export {
+  RpcError,
+  isRpcTransportError,
+  socketRpc,
+  warnRpcTransportError,
+  type RpcCaller,
+  type SocketLike,
+} from "./rpc";
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -682,7 +689,7 @@ export interface LiveEndResponse {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export { formatUserError } from "./errors";
+export { formatUserError, shouldShowUserError } from "./errors";
 
 /** Kayıtlı hesap rozeti — cihazdaki diğer oturumlar için hafif istek */
 export async function fetchNotificationsUnreadCount(

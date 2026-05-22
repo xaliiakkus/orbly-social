@@ -111,8 +111,21 @@ function userFacingMessage(raw: string, status: number): string {
   return messageFromStatus(status);
 }
 
+/** Socket kopması — UI'da gösterme (terminal uyarısı için warnRpcTransportError) */
+export function shouldShowUserError(error: unknown): boolean {
+  return !(
+    typeof error === "object" &&
+    error !== null &&
+    (error as ClientErrorLike).name === "RpcError" &&
+    (error as ClientErrorLike).status === 0
+  );
+}
+
 /** API / ağ hatalarını son kullanıcıya uygun Türkçe metne çevirir. */
 export function formatUserError(error: unknown): string {
+  if (!shouldShowUserError(error)) {
+    return "";
+  }
   if (isClientError(error)) {
     const raw = error.message?.trim() ?? "";
     if (error.status === 0 && SOCKET_FRIENDLY[raw]) {

@@ -2,10 +2,12 @@ import { useRouter } from "expo-router";
 import { StyleSheet, Text } from "react-native";
 
 import { OrblyColors } from "@/constants/Colors";
+import { useThemeStore } from "@/lib/theme-store";
 
 const TOKEN = /([#@][\w_]+)/g;
 
 export function PostContent({ content }: { content: string }) {
+  useThemeStore((s) => s.themeEpoch);
   const router = useRouter();
   const parts = content.split(TOKEN);
 
