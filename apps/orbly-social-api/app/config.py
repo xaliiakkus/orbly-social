@@ -137,5 +137,20 @@ class Settings(BaseSettings):
     support_email: str = Field(default="info@orbly.social", validation_alias="SUPPORT_EMAIL")
     mail_from_email: str = Field(default="info@orbly.social", validation_alias="MAIL_FROM_EMAIL")
 
+    web_app_url: str = Field(
+        default="http://localhost:3000",
+        validation_alias=AliasChoices("WEB_APP_URL", "NEXTAUTH_URL"),
+    )
+    mobile_app_scheme: str = Field(default="mobile", validation_alias="MOBILE_APP_SCHEME")
+    smtp_host: str | None = Field(default=None, validation_alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
+    smtp_user: str | None = Field(default=None, validation_alias="SMTP_USER")
+    smtp_password: str | None = Field(default=None, validation_alias="SMTP_PASSWORD")
+    smtp_use_tls: bool = Field(default=True, validation_alias="SMTP_USE_TLS")
+
+    @property
+    def email_from(self) -> str:
+        return self.mail_from_email
+
 
 settings = Settings()

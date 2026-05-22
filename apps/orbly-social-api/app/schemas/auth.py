@@ -1,6 +1,6 @@
 import re
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 _USERNAME_RE = re.compile(r"^[a-z0-9_]+$")
 
@@ -47,3 +47,30 @@ class OnboardingIn(BaseModel):
     avatarUrl: str | None = None
     orbitIds: list[str] | None = None
     onboarded: bool | None = None
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr = Field(examples=["info@orbly.social"])
+    username: str = Field(min_length=3, max_length=50, examples=["demo"])
+
+    @field_validator("username")
+    @classmethod
+    def username_format(cls, v: str) -> str:
+        v = v.lower().strip()
+        if not _USERNAME_RE.match(v):
+            raise ValueError(
+                "Kullanıcı adı yalnızca küçük harf, rakam ve alt çizgi içerebilir"
+            )
+        return v
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=16, max_length=256)
+    password: str = Field(min_length=8, max_length=128)
+    confirmPassword: str = Field(min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def passwords_match(self) -> ResetPasswordIn:
+        if self.password != self.confirmPassword:
+            raise ValueError("Şifreler eşleşmiyor")
+        return self

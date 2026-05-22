@@ -1,14 +1,17 @@
 "use client";
 
 import { getSession, signIn, signOut, useSession } from "next-auth/react";
+import { formatUserError } from "@orbly/api-client";
 import {
   AlertCircle,
   ArrowLeft,
+  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
   Lock,
   Mail,
+  User,
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
@@ -19,10 +22,13 @@ import { AccountLimitModal } from "@/components/auth/account-limit-modal";
 import { AccountSwitcher } from "@/components/auth/account-switcher";
 import { Button } from "@/components/ui/button";
 import { Logo, OrblyWordmark } from "@/components/ui/logo";
+import { api } from "@/lib/api";
 import { supportMailtoSubject } from "@/lib/app-contact";
 import { cancelAddAccount } from "@/lib/cancel-add-account";
 import { MAX_DEVICE_ACCOUNTS, useDeviceAccountsStore } from "@/lib/device-accounts-store";
 import { cn } from "@/lib/cn";
+
+type AuthView = "login" | "forgot" | "forgot-sent" | "reset";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -169,15 +175,94 @@ function LoginForm() {
   const { update } = useSession();
   const emailId = useId();
   const passwordId = useId();
+  const forgotEmailId = useId();
+  const forgotUsernameId = useId();
+  const newPasswordId = useId();
+  const confirmPasswordId = useId();
+  const resetTokenParam = searchParams.get("resetToken") ?? "";
+  const [view, setView] = useState<AuthView>("login");
+  const [resetToken, setResetToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const addAccount = searchParams.get("addAccount") === "1";
   const savedCount = useDeviceAccountsStore((s) => s.accounts.length);
   const canAddNewAccount = useDeviceAccountsStore((s) => s.canAddNewAccount);
+
+  useEffect(() => {
+    if (resetTokenParam) {
+      setResetToken(resetTokenParam);
+      setView("reset");
+      setError("");
+      setSuccess("");
+    }
+  }, [resetTokenParam]);
+
+  const goToLogin = (message?: string) => {
+    setView("login");
+    setResetToken("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setSuccess(message ?? "");
+    if (resetTokenParam) router.replace("/login");
+  };
+
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    try {
+      const res = await api.auth.forgotPassword({
+        email: forgotEmail.trim(),
+        username: forgotUsername.trim().toLowerCase(),
+      });
+      setSuccess(res.message);
+      setView("forgot-sent");
+    } catch (err) {
+      setError(formatUserError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    if (newPassword !== confirmPassword) {
+      setError("Şifreler eşleşmiyor.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Şifre en az 8 karakter olmalı.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.auth.resetPassword({
+        token: resetToken,
+        password: newPassword,
+        confirmPassword,
+      });
+      goToLogin(res.message);
+    } catch (err) {
+      setError(formatUserError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const authError = searchParams.get("error");
@@ -251,6 +336,189 @@ function LoginForm() {
     router.push(result.path);
     router.refresh();
   };
+
+  if (view !== "login") {
+    const title =
+      view === "forgot"
+        ? "Şifremi unuttum"
+        : view === "forgot-sent"
+          ? "E-postanı kontrol et"
+          : "Yeni şifre belirle";
+    const subtitle =
+      view === "forgot"
+        ? "Kayıtlı e-posta ve kullanıcı adını gir; şifre sıfırlama bağlantısını gönderelim."
+        : view === "forgot-sent"
+          ? "Eşleşen bir hesap varsa şirket e-postamızdan sıfırlama bağlantısı geldi."
+          : "Yeni şifreni iki kez gir; ardından giriş ekranına döneceksin.";
+
+    return (
+      <div className="w-full max-w-[440px] auth-animate-in">
+        <button
+          type="button"
+          onClick={() => (view === "forgot-sent" ? goToLogin() : setView("login"))}
+          className={cn(
+            "mb-5 flex items-center gap-2 rounded-full px-2 py-1.5 -ml-1",
+            "text-[15px] font-bold text-text-secondary transition-colors",
+            "hover:bg-bg-hover hover:text-text-primary",
+          )}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Giriş ekranına dön
+        </button>
+
+        <div className="mb-6 flex flex-col items-center text-center lg:items-start lg:text-left">
+          <Logo size="lg" linked={false} className="mb-4 lg:hidden" />
+          <div className="hidden lg:flex items-center gap-2 mb-3">
+            <OrblyWordmark className="text-2xl" />
+          </div>
+          <h1 className="text-[28px] sm:text-3xl font-extrabold tracking-tight leading-tight">
+            {title}
+          </h1>
+          <p className="mt-2 text-[15px] text-text-secondary leading-relaxed max-w-sm">
+            {subtitle}
+          </p>
+        </div>
+
+        {view === "forgot-sent" ? (
+          <div className="space-y-4">
+            <div className="flex gap-2.5 rounded-xl border border-accent/30 bg-accent/10 px-3.5 py-3 text-sm text-text-primary">
+              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-accent" aria-hidden />
+              <span className="leading-snug">{success}</span>
+            </div>
+            <Button
+              type="button"
+              variant="accent"
+              size="lg"
+              className="w-full !rounded-full"
+              onClick={() => goToLogin()}
+            >
+              Giriş yap
+            </Button>
+          </div>
+        ) : view === "forgot" ? (
+          <form onSubmit={submitForgot} className="space-y-4">
+            <AuthField
+              id={forgotEmailId}
+              label="E-posta"
+              type="email"
+              value={forgotEmail}
+              onChange={setForgotEmail}
+              icon={Mail}
+              autoComplete="email"
+            />
+            <AuthField
+              id={forgotUsernameId}
+              label="Kullanıcı adı"
+              type="text"
+              value={forgotUsername}
+              onChange={(v) => setForgotUsername(v.toLowerCase())}
+              icon={User}
+              autoComplete="username"
+            />
+            {error && (
+              <div
+                role="alert"
+                className="flex gap-2.5 rounded-xl border border-like/30 bg-like/10 px-3.5 py-3 text-sm text-like"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+                <span className="leading-snug">{error}</span>
+              </div>
+            )}
+            <Button
+              type="submit"
+              variant="accent"
+              size="lg"
+              className="w-full !rounded-full shadow-lg shadow-accent/20"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Gönderiliyor…
+                </span>
+              ) : (
+                "Sıfırlama bağlantısı gönder"
+              )}
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={submitReset} className="space-y-4">
+            <AuthField
+              id={newPasswordId}
+              label="Yeni şifre"
+              type={showNewPassword ? "text" : "password"}
+              value={newPassword}
+              onChange={setNewPassword}
+              icon={Lock}
+              autoComplete="new-password"
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="mr-3 rounded-lg p-1.5 text-text-tertiary hover:bg-bg-hover hover:text-text-primary transition-colors"
+                  aria-label={showNewPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-[18px] w-[18px]" />
+                  ) : (
+                    <Eye className="h-[18px] w-[18px]" />
+                  )}
+                </button>
+              }
+            />
+            <AuthField
+              id={confirmPasswordId}
+              label="Yeni şifre (tekrar)"
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              icon={Lock}
+              autoComplete="new-password"
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="mr-3 rounded-lg p-1.5 text-text-tertiary hover:bg-bg-hover hover:text-text-primary transition-colors"
+                  aria-label={showConfirmPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-[18px] w-[18px]" />
+                  ) : (
+                    <Eye className="h-[18px] w-[18px]" />
+                  )}
+                </button>
+              }
+            />
+            {error && (
+              <div
+                role="alert"
+                className="flex gap-2.5 rounded-xl border border-like/30 bg-like/10 px-3.5 py-3 text-sm text-like"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+                <span className="leading-snug">{error}</span>
+              </div>
+            )}
+            <Button
+              type="submit"
+              variant="accent"
+              size="lg"
+              className="w-full !rounded-full shadow-lg shadow-accent/20"
+              disabled={loading || !resetToken}
+            >
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Kaydediliyor…
+                </span>
+              ) : (
+                "Şifreyi kaydet"
+              )}
+            </Button>
+          </form>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[440px] auth-animate-in">
@@ -327,14 +595,23 @@ function LoginForm() {
             icon={Mail}
             autoComplete="email"
           />
-          <div className="flex justify-end -mt-1">
-            <a
-              href={supportMailtoSubject("Şifre sıfırlama")}
-              className="text-[13px] font-semibold text-accent hover:underline"
-            >
-              Şifremi unuttum
-            </a>
-          </div>
+          {!addAccount && (
+            <div className="flex justify-end -mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setForgotUsername("");
+                  setError("");
+                  setSuccess("");
+                  setView("forgot");
+                }}
+                className="text-[13px] font-semibold text-accent hover:underline underline-offset-4"
+              >
+                Şifremi unuttum
+              </button>
+            </div>
+          )}
           <AuthField
             id={passwordId}
             label="Şifre"
@@ -358,6 +635,16 @@ function LoginForm() {
               </button>
             }
           />
+
+          {success && (
+            <div
+              role="status"
+              className="flex gap-2.5 rounded-xl border border-accent/30 bg-accent/10 px-3.5 py-3 text-sm text-text-primary"
+            >
+              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-accent" aria-hidden />
+              <span className="leading-snug">{success}</span>
+            </div>
+          )}
 
           {error && (
             <div

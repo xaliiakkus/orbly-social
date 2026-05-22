@@ -30,6 +30,8 @@ class User(Document):
     oauthId: str | None = None
     stats: UserStats = Field(default_factory=UserStats)
     orbitIds: list[PydanticObjectId] = Field(default_factory=list)
+    passwordResetTokenHash: str | None = None
+    passwordResetExpiresAt: datetime | None = None
 
     class Settings:
         name = "users"

@@ -1,11 +1,18 @@
 {
   "expo": {
     "name": "mobile",
-    "slug": "mobile",
+    "slug": "orbly-social",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
+    "linking": {
+      "prefixes": [
+        "mobile://",
+        "https://orbly.social",
+        "https://www.orbly.social"
+      ]
+    },
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,6 +22,10 @@
     },
     "ios": {
       "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:orbly.social",
+        "applinks:www.orbly.social"
+      ],
       "infoPlist": {
         "NSCameraUsageDescription": "Canlı yayında kamera kullanmak için gerekli.",
         "NSMicrophoneUsageDescription": "Canlı yayın ve sesli odalarda konuşmak için gerekli.",
@@ -23,6 +34,25 @@
       "bitcode": false
     },
     "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "orbly.social",
+              "pathPrefix": "/login"
+            },
+            {
+              "scheme": "https",
+              "host": "www.orbly.social",
+              "pathPrefix": "/login"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -39,7 +69,10 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
         "android.permission.FOREGROUND_SERVICE_CAMERA",
-        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -66,6 +99,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "528b2bef-2472-4b61-a31d-841f59b12e7f"
+      }
+    },
+    "owner": "aakkus"
   }
 }

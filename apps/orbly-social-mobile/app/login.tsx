@@ -25,21 +25,69 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { disconnectSocket, reconnectSocket } from "@/lib/socket";
 import { ORBLY_SUPPORT_EMAIL, supportMailto } from "@/lib/app-contact";
+import {
+  extractResetTokenFromUrl,
+  parseRouteParam,
+} from "@/lib/password-reset-link";
 import { syncCurrentAccountToDevice } from "@/lib/sync-saved-account";
+
+type AuthView = "login" | "forgot" | "forgot-sent" | "reset";
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ addAccount?: string }>();
+  const params = useLocalSearchParams<{ addAccount?: string; resetToken?: string }>();
   const addAccount = params.addAccount === "1";
+  const resetTokenParam = parseRouteParam(params.resetToken);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [view, setView] = useState<AuthView>("login");
+  const [resetToken, setResetToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const savedCount = useDeviceAccountsStore((s) => s.accounts.length);
   const canAddNewAccount = useDeviceAccountsStore((s) => s.canAddNewAccount);
+
+  const openResetWithToken = (token: string) => {
+    if (!token) return;
+    setResetToken(token);
+    setView("reset");
+    setError("");
+    setSuccess("");
+  };
+
+  useEffect(() => {
+    if (resetTokenParam) openResetWithToken(resetTokenParam);
+  }, [resetTokenParam]);
+
+  useEffect(() => {
+    const handleUrl = (url: string | null) => {
+      if (!url) return;
+      const token = extractResetTokenFromUrl(url);
+      if (token) openResetWithToken(token);
+    };
+
+    void Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener("url", ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
+
+  const goToLogin = (message?: string) => {
+    setView("login");
+    setResetToken("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setSuccess(message ?? "");
+    if (resetTokenParam) router.replace("/login");
+  };
 
   const finishAuth = async (res: Parameters<typeof setAuth>[0]) => {
     if (useDeviceAccountsStore.getState().wouldExceedLimit(res.user.id)) {
@@ -55,6 +103,7 @@ export default function LoginScreen() {
 
   const submit = async () => {
     setError("");
+    setSuccess("");
     if (addAccount && !canAddNewAccount) {
       setLimitOpen(true);
       return;
@@ -64,6 +113,50 @@ export default function LoginScreen() {
       disconnectSocket();
       const res = await api.auth.login({ email, password });
       await finishAuth(res);
+    } catch (e) {
+      setError(formatUserError(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitForgot = async () => {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    try {
+      const res = await api.auth.forgotPassword({
+        email: forgotEmail.trim(),
+        username: forgotUsername.trim().toLowerCase(),
+      });
+      setSuccess(res.message);
+      setView("forgot-sent");
+    } catch (e) {
+      setError(formatUserError(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitReset = async () => {
+    setError("");
+    setSuccess("");
+    if (newPassword !== confirmPassword) {
+      setError("Şifreler eşleşmiyor.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Şifre en az 8 karakter olmalı.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.auth.resetPassword({
+        token: resetToken,
+        password: newPassword,
+        confirmPassword,
+      });
+      goToLogin(res.message);
     } catch (e) {
       setError(formatUserError(e));
     } finally {
@@ -89,6 +182,116 @@ export default function LoginScreen() {
     else router.replace("/(tabs)");
   };
 
+  const title =
+    view === "forgot"
+      ? "Şifremi unuttum"
+      : view === "forgot-sent"
+        ? "E-postanı kontrol et"
+        : view === "reset"
+          ? "Yeni şifre belirle"
+          : addAccount
+            ? "Başka hesap ekle"
+            : "Orbly'ye giriş yap";
+
+  if (view !== "login") {
+    return (
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable
+          style={styles.backRow}
+          onPress={() => (view === "forgot-sent" ? goToLogin() : setView("login"))}
+        >
+          <FontAwesome name="arrow-left" size={18} color={OrblyColors.textPrimary} />
+          <Text style={styles.backText}>Giriş ekranına dön</Text>
+        </Pressable>
+
+        <OrblyLogo size="xl" style={styles.brandLogo} />
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.sub}>
+          {view === "forgot"
+            ? "Kayıtlı e-posta ve kullanıcı adını gir; sıfırlama bağlantısı gönderilir."
+            : view === "forgot-sent"
+              ? "Eşleşen hesap varsa e-postana bağlantı geldi (web veya uygulama)."
+              : "Yeni şifreni iki kez gir; ardından giriş ekranına dönersin."}
+        </Text>
+
+        {view === "forgot-sent" ? (
+          <>
+            {success ? <Text style={styles.success}>{success}</Text> : null}
+            <Pressable style={styles.btn} onPress={() => goToLogin()}>
+              <Text style={styles.btnText}>Giriş yap</Text>
+            </Pressable>
+          </>
+        ) : view === "forgot" ? (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="E-posta"
+              placeholderTextColor={OrblyColors.textSecondary}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={forgotEmail}
+              onChangeText={setForgotEmail}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Kullanıcı adı"
+              placeholderTextColor={OrblyColors.textSecondary}
+              autoCapitalize="none"
+              value={forgotUsername}
+              onChangeText={(v) => setForgotUsername(v.toLowerCase())}
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable style={styles.btn} onPress={() => void submitForgot()} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.btnText}>Sıfırlama bağlantısı gönder</Text>
+              )}
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="Yeni şifre"
+              placeholderTextColor={OrblyColors.textSecondary}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Yeni şifre (tekrar)"
+              placeholderTextColor={OrblyColors.textSecondary}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable
+              style={styles.btn}
+              onPress={() => void submitReset()}
+              disabled={loading || !resetToken}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.btnText}>Şifreyi kaydet</Text>
+              )}
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -106,13 +309,9 @@ export default function LoginScreen() {
       )}
 
       <OrblyLogo size="xl" style={styles.brandLogo} />
-      <Text style={styles.title}>
-        {addAccount ? "Başka hesap ekle" : "Orbly'ye giriş yap"}
-      </Text>
+      <Text style={styles.title}>{title}</Text>
       {addAccount && (
-        <Text style={styles.sub}>
-          Bu cihazda kayıtlı hesap: {savedCount}/3
-        </Text>
+        <Text style={styles.sub}>Bu cihazda kayıtlı hesap: {savedCount}/3</Text>
       )}
 
       {addAccount && (
@@ -147,12 +346,21 @@ export default function LoginScreen() {
         value={password}
         onChangeText={setPassword}
       />
-      <Pressable
-        style={styles.forgotWrap}
-        onPress={() => void Linking.openURL(supportMailto("Şifre sıfırlama"))}
-      >
-        <Text style={styles.forgotText}>Şifremi unuttum</Text>
-      </Pressable>
+      {!addAccount && (
+        <Pressable
+          style={styles.forgotWrap}
+          onPress={() => {
+            setForgotEmail(email);
+            setForgotUsername("");
+            setError("");
+            setSuccess("");
+            setView("forgot");
+          }}
+        >
+          <Text style={styles.forgotText}>Şifremi unuttum</Text>
+        </Pressable>
+      )}
+      {success ? <Text style={styles.success}>{success}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable style={styles.btn} onPress={() => void submit()} disabled={loading}>
         {loading ? (
@@ -224,6 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: OrblyColors.bgPrimary,
   },
   error: { color: OrblyColors.like, marginBottom: 12 },
+  success: { color: OrblyColors.accent, marginBottom: 12, fontSize: 15 },
   btn: {
     backgroundColor: OrblyColors.textPrimary,
     borderRadius: 999,

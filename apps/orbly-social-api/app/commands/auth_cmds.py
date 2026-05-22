@@ -12,9 +12,24 @@ from app.commands.registry import action
 from app.config import settings
 from app.errors import AppError
 from app.models.user import User
-from app.schemas.auth import LoginIn, OAuthIn, OnboardingIn, RefreshIn, RegisterIn
+from app.schemas.auth import (
+    ForgotPasswordIn,
+    LoginIn,
+    OAuthIn,
+    OnboardingIn,
+    RefreshIn,
+    RegisterIn,
+    ResetPasswordIn,
+)
 from app.schemas.common import AuthResponse
 from app.services.auth_tokens import create_tokens, decode_token
+from app.services.email import send_password_reset_email
+from app.services.password_reset import (
+    hash_reset_token,
+    is_reset_expired,
+    new_reset_token,
+    reset_expires_at,
+)
 from app.services.serializers import user_out
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -139,6 +154,60 @@ async def oauth_login(_user_id: str | None, data: dict[str, Any]) -> dict[str, A
         await user.save()
 
     return to_jsonable(AuthResponse(user=user_out(user), tokens=create_tokens(str(user.id))))
+
+
+FORGOT_PASSWORD_OK = {
+    "ok": True,
+    "message": "Eşleşen bir hesap varsa şifre sıfırlama bağlantısı e-posta adresine gönderildi.",
+}
+
+
+@action("auth.forgotPassword", public=True)
+async def forgot_password(_user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
+    body = ForgotPasswordIn.model_validate(data)
+    user = await User.find_one(
+        {"email": body.email.lower(), "username": body.username},
+    )
+    if not user or not user.passwordHash or user.isBanned:
+        return FORGOT_PASSWORD_OK
+
+    token = new_reset_token()
+    user.passwordResetTokenHash = hash_reset_token(token)
+    user.passwordResetExpiresAt = reset_expires_at()
+    await user.save()
+
+    web_reset_url = f"{settings.web_app_url.rstrip('/')}/login?resetToken={token}"
+    mobile_reset_url = f"{settings.mobile_app_scheme}://login?resetToken={token}"
+    try:
+        await send_password_reset_email(
+            to=user.email,
+            reset_url=web_reset_url,
+            mobile_reset_url=mobile_reset_url,
+        )
+    except Exception as exc:
+        user.passwordResetTokenHash = None
+        user.passwordResetExpiresAt = None
+        await user.save()
+        raise AppError("E-posta gönderilemedi. Lütfen daha sonra tekrar dene.", 503) from exc
+
+    return FORGOT_PASSWORD_OK
+
+
+@action("auth.resetPassword", public=True)
+async def reset_password(_user_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
+    body = ResetPasswordIn.model_validate(data)
+    token_hash = hash_reset_token(body.token)
+    user = await User.find_one({"passwordResetTokenHash": token_hash})
+    if not user or is_reset_expired(user.passwordResetExpiresAt):
+        raise AppError("Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş", 400)
+    if not user.passwordHash:
+        raise AppError("Bu hesap için şifre sıfırlama kullanılamaz", 400)
+
+    user.passwordHash = pwd.hash(body.password)
+    user.passwordResetTokenHash = None
+    user.passwordResetExpiresAt = None
+    await user.save()
+    return {"ok": True, "message": "Şifren güncellendi. Giriş yapabilirsin."}
 
 
 @action("auth.onboarding")
