@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AuthLegalLinks } from "@/components/legal/AuthLegalLinks";
 import { AccountLimitModal } from "@/components/AccountLimitModal";
 import { OrblyLogo } from "@/components/OrblyLogo";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
@@ -375,12 +376,21 @@ export default function LoginScreen() {
           <Text style={styles.btnText}>{addAccount ? "Hesabı ekle" : "Giriş yap"}</Text>
         )}
       </Pressable>
-      <OAuthButtons onSuccess={onOAuthSuccess} />
       {!addAccount && (
-        <Pressable onPress={() => router.push("/signup")} style={styles.linkWrap}>
-          <Text style={styles.linkText}>Hesap oluştur</Text>
-        </Pressable>
+        <View style={styles.signupRow}>
+          <Text style={styles.signupMuted}>Hesabın yok mu? </Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.replace("/signup")}
+            hitSlop={8}
+          >
+            <Text style={styles.signupLink}>Kayıt ol</Text>
+          </Pressable>
+        </View>
       )}
+      <OAuthButtons onSuccess={onOAuthSuccess} />
+
+      {!addAccount && <AuthLegalLinks variant="login" />}
 
       <Text style={styles.supportHint}>
         Destek:{" "}
@@ -448,8 +458,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   btnText: { color: "#000", fontWeight: "700", fontSize: 15 },
-  linkWrap: { marginTop: 16, alignItems: "center" },
-  linkText: { color: OrblyColors.accent, fontSize: 15 },
+  signupRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  signupMuted: { color: OrblyColors.textSecondary, fontSize: 15 },
+  signupLink: { color: OrblyColors.accent, fontSize: 15, fontWeight: "700" },
   forgotWrap: { alignSelf: "flex-end", marginBottom: 12, marginTop: -4 },
   forgotText: { color: OrblyColors.accent, fontSize: 14, fontWeight: "600" },
   supportHint: {

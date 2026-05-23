@@ -1,20 +1,39 @@
 "use client";
 
-import { useRealtimeSync } from "@orbly/features";
+import { usePrefetchNotificationsFeed, useRealtimeSync } from "@orbly/features";
 import { useSession } from "next-auth/react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuthStore } from "@/lib/auth-store";
-import { getSocket } from "@/lib/socket";
+import { getSocket, subscribeSocketLifecycle } from "@/lib/socket";
 
 export function useRealtime() {
   const { data: session } = useSession();
-  const getSocketStable = useCallback(() => {
-    return getSocket(session?.accessToken ?? useAuthStore.getState().accessToken);
-  }, [session?.accessToken]);
+  const storeToken = useAuthStore((s) => s.accessToken);
+  const accessToken = session?.accessToken ?? storeToken;
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const [socketEpoch, setSocketEpoch] = useState(0);
 
-  useRealtimeSync(
-    getSocketStable,
-    () => useAuthStore.getState().user?.id ?? null,
-  );
+  useEffect(() => {
+    if (!accessToken) return;
+    const bump = () => setSocketEpoch((n) => n + 1);
+    const unsubLifecycle = subscribeSocketLifecycle(bump);
+    const socket = getSocket(accessToken);
+    socket.on("connect", bump);
+    if (socket.connected) bump();
+    return () => {
+      unsubLifecycle();
+      socket.off("connect", bump);
+    };
+  }, [accessToken]);
+
+  const getSocketStable = useCallback(() => {
+    if (!accessToken) return null;
+    return getSocket(accessToken);
+  }, [accessToken, socketEpoch]);
+
+  const getViewerId = useCallback(() => userId, [userId]);
+
+  useRealtimeSync(getSocketStable, getViewerId);
+  usePrefetchNotificationsFeed(!!accessToken);
 }

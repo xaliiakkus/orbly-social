@@ -6,11 +6,10 @@ import {
   NOTIFICATION_TABS,
   useMarkNotificationRead,
   useNotificationsFeed,
-  useReadAllNotifications,
+  useNotificationsMarkSeenOnVisit,
   type NotificationFeedEntry,
   type NotificationTabId,
 } from "@orbly/features";
-import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,7 +32,7 @@ export default function NotificationsScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const {
     data,
-    isLoading,
+    isPending,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -41,13 +40,8 @@ export default function NotificationsScreen() {
     isRefetching,
   } = useNotificationsFeed();
   const markRead = useMarkNotificationRead();
-  const { mutate: markAllSeen } = useReadAllNotifications();
-
-  useFocusEffect(
-    useCallback(() => {
-      markAllSeen();
-    }, [markAllSeen]),
-  );
+  useNotificationsMarkSeenOnVisit();
+  const showInitialLoader = isPending && !data;
 
   const entries = useMemo(() => {
     const flat = flattenNotifications(data);
@@ -73,7 +67,7 @@ export default function NotificationsScreen() {
       <View style={styles.container}>
         <NotificationsHeader onMenuOpen={() => setMenuOpen(true)} />
         <XTabs tabs={NOTIFICATION_TABS} active={tab} onChange={setTab} />
-        {isLoading ? (
+        {showInitialLoader ? (
           <ActivityIndicator style={styles.loader} color={OrblyColors.accent} />
         ) : (
           <FlatList

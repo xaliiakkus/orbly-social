@@ -47,7 +47,8 @@ export interface SocketLike {
   };
 }
 
-const CONNECT_TIMEOUT_MS = 15_000;
+const CONNECT_TIMEOUT_MS = 12_000;
+const RPC_ACK_TIMEOUT_MS = 20_000;
 
 function ensureSocketConnected(socket: SocketLike): Promise<void> {
   if (socket.connected) return Promise.resolve();
@@ -113,7 +114,7 @@ function emitRpc<T>(
   data: Record<string, unknown>,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    socket.timeout(30_000).emit("rpc", { action, data }, (err, response) => {
+    socket.timeout(RPC_ACK_TIMEOUT_MS).emit("rpc", { action, data }, (err, response) => {
       if (err instanceof Error) {
         reject(new RpcError(0, "rpc"));
         return;
@@ -133,17 +134,19 @@ export function socketRpc<T>(
   action: string,
   data: Record<string, unknown> = {},
 ): Promise<T> {
-  return ensureSocketConnected(socket)
-    .then(() => emitRpc<T>(socket, action, data))
-    .catch((err) => {
-      if (err instanceof RpcError && err.status === 0 && socket.connected) {
-        return emitRpc<T>(socket, action, data);
-      }
-      if (err instanceof RpcError && err.status === 0) {
-        return ensureSocketConnected(socket).then(() =>
-          emitRpc<T>(socket, action, data),
-        );
-      }
-      throw err;
-    });
+  let retried = false;
+
+  const attempt = (): Promise<T> =>
+    ensureSocketConnected(socket)
+      .then(() => emitRpc<T>(socket, action, data))
+      .catch((err) => {
+        if (!isRpcTransportError(err) || retried) throw err;
+        retried = true;
+        if (socket.connected) {
+          return emitRpc<T>(socket, action, data);
+        }
+        return ensureSocketConnected(socket).then(() => emitRpc<T>(socket, action, data));
+      });
+
+  return attempt();
 }

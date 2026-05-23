@@ -2,7 +2,9 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
 
 from app.commands.posts_cmds import delete_post, update_post
+from app.commands.registry import dispatch
 from app.deps import OptionalUserId, UserId
+from app.errors import AppError
 from app.models.post import Post
 from app.schemas.common import PaginatedPosts, PaginatedUsers
 from app.schemas.posts import UpdatePostIn
@@ -11,6 +13,15 @@ from app.services.posts import enrich_posts, list_post_reposters
 from app.utils import decode_cursor, encode_cursor, parse_limit
 
 router = APIRouter()
+
+
+@router.post("/{post_id}/view")
+async def view_post_http(post_id: str, user_id: UserId):
+    """Görüntülenme — socket yokken HTTP fallback."""
+    try:
+        return await dispatch("posts.view", user_id, {"postId": post_id})
+    except AppError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
 
 
 @router.patch("/{post_id}")

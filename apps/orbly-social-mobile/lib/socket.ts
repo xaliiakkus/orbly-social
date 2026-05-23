@@ -86,7 +86,7 @@ export function reconnectSocket(accessToken?: string | null) {
 /** RPC öncesi bağlantının hazır olmasını bekler (AuthBootstrap vb.). */
 export function waitForSocketConnection(
   sock: Socket = getSocket(),
-  timeoutMs = 15_000,
+  timeoutMs = 12_000,
 ): Promise<void> {
   if (sock.connected) return Promise.resolve();
   return new Promise((resolve, reject) => {

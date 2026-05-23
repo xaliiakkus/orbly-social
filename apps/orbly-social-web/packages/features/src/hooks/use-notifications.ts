@@ -4,6 +4,13 @@ import type { NotificationItem } from "@orbly/types";
 
 import { useApi, useOrblyQueryClient } from "../context";
 import {
+  fetchNotificationsPage,
+  getNextNotificationsPageParam,
+  NOTIFICATIONS_FEED_STALE_MS,
+  NOTIFICATIONS_QUERY_KEY,
+  seedNotificationsFeedIfEmpty,
+} from "../notifications/notifications-feed-query";
+import {
   markNotificationsReadInCache,
   setNotificationUnreadCount,
   syncUnreadCountFromNotificationCache,
@@ -13,21 +20,18 @@ export function useNotificationsFeed(options?: { enabled?: boolean }) {
   const api = useApi();
   const qc = useOrblyQueryClient();
   return useInfiniteQuery({
-    queryKey: ["notifications"],
-    queryFn: async ({ pageParam }) => {
-      const res = await api.notifications.list(pageParam as string | undefined);
-      if (!pageParam && typeof res.unreadCount === "number") {
-        setNotificationUnreadCount(qc, res.unreadCount);
-      }
-      return res;
-    },
+    queryKey: NOTIFICATIONS_QUERY_KEY,
+    queryFn: ({ pageParam }) =>
+      fetchNotificationsPage(api, qc, pageParam as string | undefined),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => (last.hasMore ? last.nextCursor ?? undefined : undefined),
+    getNextPageParam: getNextNotificationsPageParam,
     enabled: options?.enabled ?? true,
+    staleTime: NOTIFICATIONS_FEED_STALE_MS,
+    refetchOnMount: true,
   });
 }
 
-/** Sekme rozeti — hafif meta sorgusu */
+/** Sekme rozeti — hafif meta sorgusu; ilk sayfayı feed önbelleğine yazar */
 export function useNotificationUnreadCount(options?: {
   enabled?: boolean;
   refetchOnMount?: boolean;
@@ -39,15 +43,19 @@ export function useNotificationUnreadCount(options?: {
     queryFn: async () => {
       const badge = qc.getQueryData<number>(["notifications", "unread-count"]);
       if (typeof badge === "number") return badge;
-      const cached = qc.getQueryData<{ pages: Array<{ unreadCount: number }> }>(["notifications"]);
+      const cached = qc.getQueryData<{ pages: Array<{ unreadCount: number }> }>(
+        NOTIFICATIONS_QUERY_KEY,
+      );
       if (cached?.pages[0] && typeof cached.pages[0].unreadCount === "number") {
         return cached.pages[0].unreadCount;
       }
       const res = await api.notifications.list();
+      seedNotificationsFeedIfEmpty(qc, res);
+      setNotificationUnreadCount(qc, res.unreadCount);
       return res.unreadCount;
     },
     enabled: options?.enabled ?? true,
-    staleTime: 0,
+    staleTime: NOTIFICATIONS_FEED_STALE_MS,
     refetchOnMount: options?.refetchOnMount ?? true,
     refetchOnWindowFocus: true,
   });
@@ -72,15 +80,19 @@ export function useMarkNotificationRead() {
       await Promise.all(ids.map((id) => api.notifications.read(id)));
     },
     onMutate: async (notificationIds) => {
-      await qc.cancelQueries({ queryKey: ["notifications"] });
-      const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(["notifications"]);
+      const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(
+        NOTIFICATIONS_QUERY_KEY,
+      );
+      if (prev?.pages?.length) {
+        await qc.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+      }
       const ids = normalizeReadIds(notificationIds);
       markNotificationsReadInCache(qc, ids);
       return { prev };
     },
     onError: (_e, _ids, ctx) => {
       if (ctx?.prev) {
-        qc.setQueryData(["notifications"], ctx.prev);
+        qc.setQueryData(NOTIFICATIONS_QUERY_KEY, ctx.prev);
         syncUnreadCountFromNotificationCache(qc);
       }
     },
@@ -96,14 +108,18 @@ export function useReadAllNotifications() {
   return useMutation({
     mutationFn: () => api.notifications.readAll(),
     onMutate: async () => {
-      await qc.cancelQueries({ queryKey: ["notifications"] });
-      const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(["notifications"]);
-      markNotificationsReadInCache(qc);
+      const prev = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(
+        NOTIFICATIONS_QUERY_KEY,
+      );
+      if (prev?.pages?.length) {
+        await qc.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+        markNotificationsReadInCache(qc);
+      }
       return { prev };
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) {
-        qc.setQueryData(["notifications"], ctx.prev);
+        qc.setQueryData(NOTIFICATIONS_QUERY_KEY, ctx.prev);
         syncUnreadCountFromNotificationCache(qc);
       }
     },
@@ -113,20 +129,32 @@ export function useReadAllNotifications() {
   });
 }
 
-/** Bildirimler sekmesine girildiğinde rozeti sıfırla (X benzeri) */
+/** Bildirimler sekmesine girildiğinde rozeti sıfırla — feed yüklendikten sonra */
 export function useNotificationsMarkSeenOnVisit(enabled = true) {
+  const qc = useOrblyQueryClient();
   const { mutate } = useReadAllNotifications();
-  const ran = useRef(false);
+  const markedThisVisitRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || ran.current) return;
-    ran.current = true;
-    mutate(undefined, {
-      onSettled: () => {
-        ran.current = false;
-      },
+    if (!enabled) return;
+
+    const tryMarkSeen = () => {
+      if (markedThisVisitRef.current) return true;
+      const feed = qc.getQueryData<ReturnType<typeof useNotificationsFeed>["data"]>(
+        NOTIFICATIONS_QUERY_KEY,
+      );
+      if (!feed?.pages?.length) return false;
+      markedThisVisitRef.current = true;
+      mutate(undefined);
+      return true;
+    };
+
+    if (tryMarkSeen()) return;
+
+    return qc.getQueryCache().subscribe(() => {
+      tryMarkSeen();
     });
-  }, [enabled, mutate]);
+  }, [enabled, mutate, qc]);
 }
 
 /** @deprecated useNotificationsFeed */

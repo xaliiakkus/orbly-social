@@ -25,8 +25,16 @@ import {
 export default function NotificationsPage() {
   const [tab, setTab] = useState<NotificationTabId>("all");
   const [menuOpen, setMenuOpen] = useState(false);
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isRefetching } =
-    useNotificationsFeed();
+  const {
+    data,
+    isPending,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+    isRefetching,
+  } = useNotificationsFeed();
+  const showInitialLoader = isPending && !data;
   const markRead = useMarkNotificationRead();
   useNotificationsMarkSeenOnVisit();
 
@@ -53,8 +61,8 @@ export default function NotificationsPage() {
     <>
       <NotificationsHeader onMenuOpen={() => setMenuOpen(true)} />
       <NotificationTabs active={tab} onChange={setTab} />
-      {isLoading && <PageLoading rows={6} />}
-      {!isLoading && (
+      {showInitialLoader && <PageLoading rows={6} />}
+      {!showInitialLoader && (
         <div className={isRefetching ? "opacity-70 transition-opacity" : undefined}>
           {entries.map((entry) => (
             <NotificationRow
@@ -77,7 +85,7 @@ export default function NotificationsPage() {
           ) : null}
         </div>
       )}
-      {!isLoading && !entries.length && (
+      {!showInitialLoader && !entries.length && (
         <EmptyState
           icon={Bell}
           title={tab === "mentions" ? "Bahsetme yok" : "Bildirim yok"}
@@ -88,7 +96,7 @@ export default function NotificationsPage() {
           }
         />
       )}
-      {!isLoading && entries.length > 0 && (
+      {!showInitialLoader && entries.length > 0 && (
         <div className="py-3 flex justify-center md:hidden">
           <Button variant="ghost" size="sm" onClick={() => void refetch()}>
             Yenile

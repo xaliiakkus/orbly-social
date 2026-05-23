@@ -76,6 +76,8 @@ export function createApiClient(options: ApiClientOptions) {
   const root = baseUrl.replace(/\/$/, "");
 
   let refreshInFlight: Promise<AuthResponse | null> | null = null;
+  /** Production may lag deploy; avoid repeated POST /view 404 spam. */
+  let postsViewHttpAvailable: boolean | null = null;
 
   async function refreshAuthHttp(refreshToken: string): Promise<AuthResponse> {
     try {
@@ -191,12 +193,24 @@ export function createApiClient(options: ApiClientOptions) {
 
   return {
     auth: {
-      register: (body: {
+      register: async (body: {
         username: string;
         displayName: string;
         email: string;
         password: string;
-      }) => callRpc<AuthResponse>("auth.register", body),
+      }) => {
+        try {
+          return await rpc<AuthResponse>("auth.register", body);
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          return request<AuthResponse>("/v1/auth/register", {
+            method: "POST",
+            body: JSON.stringify(body),
+            auth: false,
+            skipRefresh: true,
+          });
+        }
+      },
       login: async (body: { login: string; password: string }) => {
         try {
           return await rpc<AuthResponse>("auth.login", body);
@@ -422,11 +436,33 @@ export function createApiClient(options: ApiClientOptions) {
             cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
           }`,
         ),
-      view: (id: string) =>
-        callRpc<{ success: boolean; counted?: boolean; viewCount?: number }>(
-          "posts.view",
-          { postId: id },
-        ),
+      view: async (id: string) => {
+        const skipped = { success: true, counted: false as const };
+        try {
+          return await callRpc<{ success: boolean; counted?: boolean; viewCount?: number }>(
+            "posts.view",
+            { postId: id },
+          );
+        } catch (e) {
+          if (!isRpcConnectionError(e)) throw e;
+          if (postsViewHttpAvailable === false) return skipped;
+          try {
+            const res = await request<{
+              success: boolean;
+              counted?: boolean;
+              viewCount?: number;
+            }>(`/v1/posts/${encodeURIComponent(id)}/view`, { method: "POST" });
+            postsViewHttpAvailable = true;
+            return res;
+          } catch (httpErr) {
+            if (httpErr instanceof ApiError && httpErr.status === 404) {
+              postsViewHttpAvailable = false;
+              return skipped;
+            }
+            throw httpErr;
+          }
+        }
+      },
       votePoll: (id: string, optionId: string) =>
         callRpc<{ post: PostPublic }>("posts.poll.vote", { postId: id, optionId }),
     },

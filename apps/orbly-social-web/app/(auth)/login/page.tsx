@@ -19,6 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useId, useState } from "react";
 
 import { AccountLimitModal } from "@/components/auth/account-limit-modal";
+import { AuthLegalLinks } from "@/components/legal/auth-legal-links";
 import { AccountSwitcher } from "@/components/auth/account-switcher";
 import { Button } from "@/components/ui/button";
 import { Logo, OrblyWordmark } from "@/components/ui/logo";
@@ -709,9 +710,9 @@ function LoginForm() {
         </p>
       </div>
 
-      <p className="mt-6 text-center text-[12px] text-text-tertiary leading-relaxed px-4 auth-animate-in auth-delay-5">
-        Giriş yaparak platform kurallarına ve gizlilik ilkelerine uymayı kabul edersin.
-        <br />
+      <AuthLegalLinks variant="login" />
+
+      <p className="mt-4 text-center text-[12px] text-text-tertiary leading-relaxed px-4 auth-animate-in auth-delay-5">
         Yardım:{" "}
         <a href={supportMailtoSubject("Destek")} className="text-accent hover:underline">
           info@orbly.social

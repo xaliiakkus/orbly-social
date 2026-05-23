@@ -1,4 +1,4 @@
-import { useRealtimeSync } from "@orbly/features";
+import { usePrefetchNotificationsFeed, useRealtimeSync } from "@orbly/features";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAuthStore } from "@/lib/auth-store";
@@ -31,5 +31,6 @@ export function RealtimeBridge() {
   const getViewerId = useCallback(() => userId, [userId]);
 
   useRealtimeSync(getSocketStable, getViewerId);
+  usePrefetchNotificationsFeed(!!accessToken);
   return null;
 }

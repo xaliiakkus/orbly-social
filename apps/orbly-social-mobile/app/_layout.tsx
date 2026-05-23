@@ -42,8 +42,10 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="login" options={{ presentation: "modal" }} />
-          <Stack.Screen name="signup" />
+          <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
+          <Stack.Screen name="signup" options={{ presentation: "fullScreenModal" }} />
+          <Stack.Screen name="privacy" options={{ presentation: "fullScreenModal" }} />
+          <Stack.Screen name="kvkk" options={{ presentation: "fullScreenModal" }} />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="messages/[id]" options={{ title: "Sohbet" }} />
           <Stack.Screen name="post/[id]" options={{ title: "Gönderi" }} />
@@ -72,7 +74,11 @@ function AuthGate() {
     if (!hydrated) return;
 
     void (async () => {
-      const inAuth = segments[0] === "login" || segments[0] === "signup";
+      const inAuth =
+        segments[0] === "login" ||
+        segments[0] === "signup" ||
+        segments[0] === "privacy" ||
+        segments[0] === "kvkk";
       const inOnboarding = segments[0] === "onboarding";
       const addingAccount =
         (await SecureStore.getItemAsync("orbly-add-account")) === "1";

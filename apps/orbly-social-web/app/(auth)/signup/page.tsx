@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { formatUserError } from "@orbly/api-client";
 
+import { AuthLegalLinks } from "@/components/legal/auth-legal-links";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { api } from "@/lib/api";
@@ -78,7 +79,9 @@ export default function SignupPage() {
           {loading ? "Kaydediliyor…" : "Kayıt ol"}
         </Button>
       </form>
-      <p className="mt-6 text-text-secondary text-[15px]">
+      <AuthLegalLinks variant="signup" />
+
+      <p className="mt-6 text-text-secondary text-[15px] text-center">
         Zaten hesabın var mı?{" "}
         <Link href="/login" className="text-accent hover:underline">
           Giriş yap

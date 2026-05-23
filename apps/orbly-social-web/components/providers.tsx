@@ -6,9 +6,13 @@ import { SessionProvider } from "next-auth/react";
 import { useState } from "react";
 
 import { SessionSync } from "@/components/auth/session-sync";
+import { SocketBootstrap } from "@/components/SocketBootstrap";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { api } from "@/lib/api";
+import { installRpcRejectionHandler } from "@/lib/install-rpc-rejection-handler";
 import { uploadFile as uploadFileWeb } from "@/lib/upload";
+
+installRpcRejectionHandler();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient());
@@ -28,6 +32,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }}
         >
           <SessionSync />
+          <SocketBootstrap />
           <ThemeProvider>{children}</ThemeProvider>
         </OrblyProvider>
       </QueryClientProvider>

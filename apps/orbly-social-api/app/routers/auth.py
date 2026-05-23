@@ -10,6 +10,7 @@ from app.schemas.auth import (
     OAuthIn,
     OnboardingIn,
     RefreshIn,
+    RegisterIn,
     ResetPasswordIn,
 )
 from app.services.serializers import user_out
@@ -29,6 +30,15 @@ async def me(user_id: UserId):
 async def username_available(username: str = Query(min_length=3, max_length=50)):
     taken = await User.find_one(User.username == username.lower())
     return {"available": taken is None}
+
+
+@router.post("/register")
+async def register_http(body: RegisterIn):
+    """Kayıt — socket yokken HTTP fallback (web/mobile signup)."""
+    try:
+        return await dispatch("auth.register", None, body.model_dump())
+    except AppError as exc:
+        raise HTTPException(exc.status, exc.message) from exc
 
 
 @router.post("/login")

@@ -23,6 +23,7 @@ export * from "./chat";
 export * from "./hooks/use-notifications";
 export * from "./hooks/use-follow-toggle";
 export * from "./notifications/notification-ui";
+export * from "./notifications/notifications-feed-query";
 export * from "./notifications/group-notifications";
 export * from "./notifications/reply-target";
 export * from "./hooks/use-oauth";

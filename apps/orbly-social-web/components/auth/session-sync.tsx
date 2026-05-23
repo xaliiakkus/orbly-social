@@ -15,7 +15,7 @@ import {
   startProactiveRefresh,
   stopProactiveRefresh,
 } from "@/lib/token-manager";
-import { disconnectSocket, reconnectSocket } from "@/lib/socket";
+import { disconnectSocket, getSocket, reconnectSocket, waitForSocketConnection } from "@/lib/socket";
 import type { UserPublic } from "@orbly/types";
 
 /** NextAuth oturumunu store + socket ile hizala. Çıkış yalnızca kullanıcı veya refresh token ölünce. */
@@ -94,6 +94,9 @@ export function SessionSync() {
 
     bootstrappedToken.current = accessToken;
     reconnectSocket(accessToken);
+    void waitForSocketConnection(getSocket(accessToken), 12_000).catch(() => {
+      /* RPC'ler HTTP fallback ile devam eder */
+    });
 
     startProactiveRefresh((payload) => {
       void update({

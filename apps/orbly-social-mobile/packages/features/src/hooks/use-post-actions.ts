@@ -110,6 +110,9 @@ export function usePostView(postId: string, viewerId?: string | null, authorId?:
   const mutation = useMutation({
     mutationFn: () => api.posts.view(postId),
     onSuccess: (res: PostViewResult) => {
+      if (viewerId && postId) {
+        sessionRecordedViews.add(viewSessionKey(viewerId, postId));
+      }
       if (res.counted && typeof res.viewCount === "number") {
         applyPostViewCountToCache(qc, postId, res.viewCount);
       }
@@ -121,7 +124,6 @@ export function usePostView(postId: string, viewerId?: string | null, authorId?:
     if (authorId && viewerId === authorId) return;
     const key = viewSessionKey(viewerId, postId);
     if (sessionRecordedViews.has(key) || pendingRef.current) return;
-    sessionRecordedViews.add(key);
     pendingRef.current = true;
     void mutation
       .mutateAsync()
