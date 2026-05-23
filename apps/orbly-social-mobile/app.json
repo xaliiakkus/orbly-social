@@ -21,7 +21,7 @@
       "backgroundColor": "#000000"
     },
     "ios": {
-      "bundleIdentifier": "social.orbly",
+      "bundleIdentifier": "com.orbly.social",
       "supportsTablet": true,
       "associatedDomains": [
         "applinks:orbly.social",
@@ -35,7 +35,7 @@
       "bitcode": false
     },
     "android": {
-      "package": "social.orbly",
+      "package": "com.orbly.social",
       "intentFilters": [
         {
           "action": "VIEW",

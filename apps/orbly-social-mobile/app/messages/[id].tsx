@@ -109,7 +109,11 @@ export default function ChatScreen() {
       asset.fileName ?? "img.jpg",
       asset.mimeType ?? "image/jpeg",
     );
-    send.mutate({ content: text.trim() || "📎", mediaUrls: [url] });
+    if (!me?.id) return;
+    send.mutate(
+      { content: text.trim() || "📎", mediaUrls: [url], senderId: me.id },
+      { onSuccess: () => setText("") },
+    );
     setText("");
   };
 
@@ -176,8 +180,11 @@ export default function ChatScreen() {
           pending={send.isPending}
           onAttach={() => void pickAndSend()}
           onSend={() => {
-            if (!text.trim()) return;
-            send.mutate({ content: text.trim() });
+            if (!text.trim() || !me?.id) return;
+            send.mutate(
+              { content: text.trim(), senderId: me.id },
+              { onSuccess: () => setText("") },
+            );
             setText("");
           }}
         />

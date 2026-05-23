@@ -180,7 +180,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
   const removeGif = (url: string) => setGifUrls((g) => g.filter((x) => x !== url));
 
   const submit = useCallback(() => {
-    if (!canPost || compose.isPending || quoteRepost.isPending) return;
+    if (!user || !canPost || compose.isPending || quoteRepost.isPending) return;
     setUploadError(null);
 
     const reset = () => {
@@ -209,6 +209,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
         externalMediaUrls: gifUrls,
         replyToId,
         pollOptions: pollOptions ?? undefined,
+        author: user,
       },
       {
         onSuccess: reset,
@@ -226,6 +227,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
     gifUrls,
     pollOptions,
     replyToId,
+    user,
     onPosted,
   ]);
 

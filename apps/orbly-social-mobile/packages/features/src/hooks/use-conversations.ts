@@ -1,7 +1,10 @@
 import type { MessageItem } from "@orbly/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { useApi, useOrblyQueryClient } from "../context";
+import { useApi, useOrbly, useOrblyQueryClient } from "../context";
+import { appendPendingMessage } from "../offline/cache-optimistic";
+import { isQueueableError } from "../offline/network";
+import { createClientId } from "../offline/queue-service";
 import {
   markConversationReadInCache,
   syncConversationsUnreadCount,
@@ -37,15 +40,59 @@ export function useConversationMessages(conversationId: string) {
 
 export function useSendMessage(conversationId: string) {
   const api = useApi();
+  const { offlineQueue } = useOrbly();
   const qc = useOrblyQueryClient();
   return useMutation({
-    mutationFn: (payload: { content: string; mediaUrls?: string[] }) =>
-      api.conversations.send(conversationId, payload.content, payload.mediaUrls),
+    mutationFn: async (payload: {
+      content: string;
+      mediaUrls?: string[];
+      senderId: string;
+    }) => {
+      const { content, mediaUrls, senderId } = payload;
+      const hasMedia = (mediaUrls?.length ?? 0) > 0;
+
+      if (offlineQueue?.isOffline()) {
+        if (hasMedia) {
+          throw new Error("Çevrimdışıyken yalnızca metin mesajı kaydedilebilir.");
+        }
+        const clientId = createClientId();
+        await offlineQueue.enqueue({
+          type: "conversations.send",
+          conversationId,
+          clientId,
+          content,
+          mediaUrls,
+          senderId,
+        });
+        appendPendingMessage(qc, conversationId, clientId, content, senderId, mediaUrls ?? []);
+        return { queued: true as const, clientId };
+      }
+
+      try {
+        return await api.conversations.send(conversationId, content, mediaUrls);
+      } catch (e) {
+        if (offlineQueue && isQueueableError(e) && !hasMedia) {
+          const clientId = createClientId();
+          await offlineQueue.enqueue({
+            type: "conversations.send",
+            conversationId,
+            clientId,
+            content,
+            mediaUrls,
+            senderId,
+          });
+          appendPendingMessage(qc, conversationId, clientId, content, senderId, mediaUrls ?? []);
+          return { queued: true as const, clientId };
+        }
+        throw e;
+      }
+    },
     onSuccess: (result) => {
+      if (!result || "queued" in result) return;
+      const msg = result.message;
       qc.setQueryData<{ data: MessageItem[] }>(
         ["messages", conversationId],
         (old) => {
-          const msg = result.message;
           if (!old?.data) return { data: [msg] };
           if (old.data.some((m) => m.id === msg.id)) return old;
           return { data: [...old.data, msg] };

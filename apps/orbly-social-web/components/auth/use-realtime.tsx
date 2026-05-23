@@ -1,13 +1,19 @@
 "use client";
 
-import { usePrefetchNotificationsFeed, useRealtimeSync } from "@orbly/features";
+import {
+  useOrblyQueryClient,
+  usePrefetchNotificationsFeed,
+  useRealtimeSync,
+} from "@orbly/features";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAuthStore } from "@/lib/auth-store";
+import { flushWebOfflineQueue } from "@/lib/offline-queue";
 import { getSocket, subscribeSocketLifecycle } from "@/lib/socket";
 
 export function useRealtime() {
+  const qc = useOrblyQueryClient();
   const { data: session } = useSession();
   const storeToken = useAuthStore((s) => s.accessToken);
   const accessToken = session?.accessToken ?? storeToken;
@@ -19,16 +25,21 @@ export function useRealtime() {
     const bump = () => setSocketEpoch((n) => n + 1);
     const unsubLifecycle = subscribeSocketLifecycle(bump);
     const socket = getSocket(accessToken);
-    socket.on("connect", bump);
-    if (socket.connected) bump();
+    const onConnect = () => {
+      bump();
+      void flushWebOfflineQueue(qc);
+    };
+    socket.on("connect", onConnect);
+    if (socket.connected) onConnect();
     return () => {
       unsubLifecycle();
-      socket.off("connect", bump);
+      socket.off("connect", onConnect);
     };
-  }, [accessToken]);
+  }, [accessToken, qc]);
 
   const getSocketStable = useCallback(() => {
     if (!accessToken) return null;
+    void socketEpoch;
     return getSocket(accessToken);
   }, [accessToken, socketEpoch]);
 

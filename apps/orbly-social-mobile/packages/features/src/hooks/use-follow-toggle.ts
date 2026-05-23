@@ -1,8 +1,9 @@
-import { formatUserError, isRpcTransportError, warnRpcTransportError } from "@orbly/api-client";
+import { formatUserError } from "@orbly/api-client";
 import { useMutation } from "@tanstack/react-query";
 import type { UserProfileResponse } from "@orbly/types";
 
-import { useApi, useOrblyQueryClient } from "../context";
+import { useApi, useOrbly, useOrblyQueryClient } from "../context";
+import { isQueueableError } from "../offline/network";
 
 export type FollowFeedback = {
   type: "success" | "error";
@@ -22,6 +23,7 @@ export function useFollowToggle(
   },
 ) {
   const api = useApi();
+  const { offlineQueue } = useOrbly();
   const qc = useOrblyQueryClient();
 
   return useMutation({
@@ -31,10 +33,32 @@ export function useFollowToggle(
       if (!targetId) {
         throw new Error("profile");
       }
-      if (currentlyFollowing) {
-        return api.users.unfollow(targetId);
+
+      const nextFollowing = !currentlyFollowing;
+
+      if (offlineQueue?.isOffline()) {
+        await offlineQueue.enqueue({
+          type: nextFollowing ? "users.follow" : "users.unfollow",
+          userId: targetId,
+        });
+        return { following: nextFollowing };
       }
-      return api.users.follow(targetId);
+
+      try {
+        if (currentlyFollowing) {
+          return api.users.unfollow(targetId);
+        }
+        return api.users.follow(targetId);
+      } catch (e) {
+        if (offlineQueue && isQueueableError(e)) {
+          await offlineQueue.enqueue({
+            type: nextFollowing ? "users.follow" : "users.unfollow",
+            userId: targetId,
+          });
+          return { following: nextFollowing };
+        }
+        throw e;
+      }
     },
     onMutate: async (currentlyFollowing) => {
       await qc.cancelQueries({ queryKey: ["profile", username] });
@@ -59,28 +83,31 @@ export function useFollowToggle(
       return { prev };
     },
     onSuccess: (_data, currentlyFollowing) => {
+      const queued = offlineQueue?.isOffline();
       options?.onFeedback?.({
         type: "success",
-        message: followSuccessMessage(!currentlyFollowing),
+        message: queued
+          ? "Çevrimdışı kaydedildi; bağlantı gelince senkronize edilir."
+          : followSuccessMessage(!currentlyFollowing),
       });
     },
     onError: (error, _v, ctx) => {
       if (ctx?.prev) {
         qc.setQueryData(["profile", username], ctx.prev);
       }
-      if (isRpcTransportError(error)) {
-        warnRpcTransportError(error, "users.follow");
-        return;
-      }
-      const message = formatUserError(error);
-      if (!message) return;
+      const msg = formatUserError(error);
       options?.onFeedback?.({
         type: "error",
-        message,
+        message:
+          msg.includes("giriş") || msg.includes("Oturum")
+            ? msg
+            : "Takip işlemi tamamlanamadı. Lütfen tekrar dene.",
       });
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: ["profile", username] });
+      if (!offlineQueue?.isOffline()) {
+        void qc.invalidateQueries({ queryKey: ["profile", username] });
+      }
     },
   });
 }

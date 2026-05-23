@@ -112,7 +112,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
     (!pollOptions || pollOptions.filter((o) => o.trim()).length >= MIN_POLL_OPTIONS);
 
   const submit = useCallback(() => {
-    if (!canPost || compose.isPending || quoteRepost.isPending) return;
+    if (!user || !canPost || compose.isPending || quoteRepost.isPending) return;
 
     const reset = () => {
       setContent("");
@@ -146,6 +146,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
         externalMediaUrls: gifUrls,
         replyToId,
         pollOptions: pollOptions ?? undefined,
+        author: user,
       },
       { onSuccess: reset },
     );
@@ -160,6 +161,7 @@ export const ComposeBox = forwardRef<ComposeBoxHandle, Props>(function ComposeBo
     gifUrls,
     pollOptions,
     replyToId,
+    user,
     qc,
     onPosted,
     onQuoteError,

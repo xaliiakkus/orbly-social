@@ -58,16 +58,20 @@ export default function ChatPage() {
   }, [data?.data.length]);
 
   const onFile = async (file: File) => {
+    if (!me?.id) return;
     const url = await uploadFile(file);
     send.mutate(
-      { content: text.trim() || "📎", mediaUrls: [url] },
+      { content: text.trim() || "📎", mediaUrls: [url], senderId: me.id },
       { onSuccess: () => setText("") },
     );
   };
 
   const submit = () => {
-    if (!text.trim()) return;
-    send.mutate({ content: text.trim() }, { onSuccess: () => setText("") });
+    if (!text.trim() || !me?.id) return;
+    send.mutate(
+      { content: text.trim(), senderId: me.id },
+      { onSuccess: () => setText("") },
+    );
   };
 
   return (

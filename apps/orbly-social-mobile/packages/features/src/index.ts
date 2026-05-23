@@ -35,3 +35,4 @@ export * from "./realtime/conversation-cache";
 export * from "./realtime/types";
 export * from "./realtime/use-realtime-sync";
 export * from "./realtime/use-socket-rooms";
+export * from "./offline";

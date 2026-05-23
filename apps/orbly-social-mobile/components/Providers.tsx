@@ -5,10 +5,12 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemedAppRoot } from "@/components/OrblyThemeProvider";
 import { AuthBootstrap } from "@/components/AuthBootstrap";
+import { OfflineBootstrap } from "@/components/OfflineBootstrap";
 import { RealtimeBridge } from "@/components/RealtimeBridge";
 import { ReplyComposeShell } from "@/components/ReplyComposeShell";
 import { SocketBootstrap } from "@/components/SocketBootstrap";
 import { api } from "@/lib/api";
+import { flushMobileOfflineQueue, mobileOfflineQueue } from "@/lib/offline-queue";
 import { installRpcRejectionHandler } from "@/lib/install-rpc-rejection-handler";
 import { uploadImage } from "@/lib/upload";
 
@@ -22,6 +24,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <OrblyProvider
         api={api}
         queryClient={client}
+        offlineQueue={mobileOfflineQueue}
+        flushOfflineQueue={() => flushMobileOfflineQueue(client)}
         uploadFile={async (file) => {
           if (!file.uri) throw new Error("Dosya yüklenemedi. Tekrar dene.");
           return uploadImage(file.uri, file.name, file.type);
@@ -30,6 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthBootstrap />
         <RealtimeBridge />
         <SocketBootstrap />
+        <OfflineBootstrap />
         <ThemedAppRoot>
           <ReplyComposeShell>{children}</ReplyComposeShell>
         </ThemedAppRoot>

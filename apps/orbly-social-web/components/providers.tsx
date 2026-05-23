@@ -6,9 +6,11 @@ import { SessionProvider } from "next-auth/react";
 import { useState } from "react";
 
 import { SessionSync } from "@/components/auth/session-sync";
+import { OfflineBootstrap } from "@/components/OfflineBootstrap";
 import { SocketBootstrap } from "@/components/SocketBootstrap";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { api } from "@/lib/api";
+import { flushWebOfflineQueue, webOfflineQueue } from "@/lib/offline-queue";
 import { installRpcRejectionHandler } from "@/lib/install-rpc-rejection-handler";
 import { uploadFile as uploadFileWeb } from "@/lib/upload";
 
@@ -22,6 +24,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <OrblyProvider
           api={api}
           queryClient={client}
+          offlineQueue={webOfflineQueue}
+          flushOfflineQueue={() => flushWebOfflineQueue(client)}
           uploadFile={async (file) => {
             if (file.blob) {
               return uploadFileWeb(
@@ -33,6 +37,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         >
           <SessionSync />
           <SocketBootstrap />
+          <OfflineBootstrap />
           <ThemeProvider>{children}</ThemeProvider>
         </OrblyProvider>
       </QueryClientProvider>
